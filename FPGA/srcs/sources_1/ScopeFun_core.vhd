@@ -513,6 +513,8 @@ signal ReadingFrame : std_logic:= '0';
 signal roll : std_logic;
 signal roll_d : std_logic;
 signal ScopeConfigChanged : std_logic;
+signal ScopeConfigChanged_d : std_logic;
+signal ScopeConfigChanged_dd : std_logic;
 signal cnt_restart_framesave : integer range 0 to 15;
 signal cnt_rst_triggered : integer range 0 to 3;
 signal sampling_CE : std_logic;
@@ -624,6 +626,7 @@ signal an_trig_dddd : std_logic;
 
 signal clearflags : STD_LOGIC:='0';
 signal clearflags_d : STD_LOGIC :='0';
+signal frameSaveRst: STD_LOGIC:='0';
 
 -- RAM allocation for oscilloscope configuration
 --type memory_array is array(1 to 64) of STD_LOGIC_VECTOR (15 downto 0);
@@ -950,6 +953,12 @@ attribute KEEP of getnewframe_d: signal is true;
 attribute ASYNC_REG of getnewframe_d: signal is true;
 attribute KEEP of getnewframe_dd:  signal is true;
 attribute ASYNC_REG of getnewframe_dd: signal is true;
+
+attribute KEEP of ScopeConfigChanged_d: signal is true;
+attribute ASYNC_REG of ScopeConfigChanged_d: signal is true;
+attribute KEEP of ScopeConfigChanged_dd:  signal is true;
+attribute ASYNC_REG of ScopeConfigChanged_dd: signal is true;
+
 
 --attribute KEEP of : signal is true;
 --attribute ASYNC_REG of : signal is true;
@@ -1551,7 +1560,7 @@ begin
 		
 		----------------
 		--genSignal_d <= signed(dac_data)-to_signed(2048,12);   --signed(dac_data_rising);
-		clearflags_d <= clearflags;
+		clearflags_d <= clearflags OR frameSaveRst;
 		holdOff_d <= holdOff;
 		
 		-- detect requestFrame rising edge (new frame request)
@@ -1574,6 +1583,9 @@ begin
 	    DataWriteEn_d <= DataWriteEn;
         PreTrigWriteEn_d <= PreTrigWriteEn;
         
+        ScopeConfigChanged_d <= ScopeConfigChanged;
+        ScopeConfigChanged_dd <= ScopeConfigChanged_d;
+            
 		--=======================================================--
 		--         Save ADC samples to buffer                    --
 		--=======================================================--
@@ -1674,9 +1686,11 @@ begin
 				auto_trigger <= '0';
 				auto_trigger_d <= '0';
 				auto_trigger_cnt <= 0;
+				pre_trigger_cnt <= to_unsigned(0,pre_trigger_cnt'length);
 				roll <= '0';
 				triggered_led <= '0';
 				dt_enable <= '0';
+				frameSaveRst <= '0';
 				
 				if ( getNewFrame = '1' AND clearflags_d = '0' and ram_rdy = '1' ) then
 					PreTrigSaving <= '1';
@@ -1700,12 +1714,15 @@ begin
 				PreTrigWriteEn <= '1';
 				triggered <= '0';
 				getNewFrame <= '0';			--> reset getNewFrame flag
-							
+									
 				--post_trigger <= unsigned(framesize_d) - pre_trigger_d + 1;
 				
-				if ( clearflags_d = '1' ) then
+				if ( clearflags_d = '1') then
 					GetSampleState <= ADC_A;
-					pre_trigger_cnt <= to_unsigned(0,pre_trigger_cnt'length);
+				-- if not triggered and configuration has changed, reset capture (go back to idle to read new config)
+				elsif ScopeConfigChanged_dd = '0' and ScopeConfigChanged_d = '1' then
+				    GetSampleState <= ADC_A;
+				    frameSaveRst <= '1';
 				-- if sample buffer is filled with pre-trigger data (note: max. pre-trigger_cnt = framesize)
 				elsif ( pre_trigger_cnt = unsigned(pre_trigger_d)) then
 					-- update saved_sample_cnt, reset pre_trigger_cnt and continue to next state
@@ -1740,11 +1757,15 @@ begin
 				    auto_trigger_cnt <= auto_trigger_cnt + 1;
 				end if;
 				
-				if ( clearflags_d = '1' ) then
+				if ( clearflags_d = '1') then
 				    dt_enable <= '0';
 					GetSampleState <= ADC_A;
 				-- define transition to POST-TRIGGER samples capture:
 				
+				-- if not triggered yet and configuration has changed, reset capture
+				elsif ScopeConfigChanged_dd = '0' and ScopeConfigChanged_d = '1' then
+				    GetSampleState <= ADC_A;
+				    frameSaveRst <= '1';
 				
 				-- immediate trigger
 				elsif trigger_mode_d = "11" then
@@ -2578,15 +2599,18 @@ begin
                         when 63 =>
                             cfg_addrA <= std_logic_vector(to_unsigned(1,6));
                             fdata <= X"0000FFFF";
-                        when 72 =>
-                            fdata(26 downto 0) <= std_logic_vector(unsigned(framesize_dd)+1);
-                        when 64 to 71 | 73 to 64+(CONFIG_DATA_SIZE-1) =>
+                        when 64 to 64+(CONFIG_DATA_SIZE-1) =>
                             if to_integer(unsigned(cfg_addrA)) = CONFIG_DATA_SIZE-1 then
                                 cfg_addrA <= std_logic_vector(to_unsigned(0,6));
                             else
                                 cfg_addrA <= std_logic_vector(unsigned(cfg_addrA) + 1);
                             end if;
-                            fdata <= cfg_do_A;
+                            if hword_cnt_i = 72 then
+                                fdata(31 downto 27) <= "00000";
+                                fdata(26 downto 0) <= std_logic_vector(unsigned(framesize_dd)+1);
+                            else
+                                fdata <= cfg_do_A;
+                            end if;
                         when FRAME_HEADER_SIZE-1 =>
                             fdata  <= x"00000000"; -- CRC
                         when others =>
