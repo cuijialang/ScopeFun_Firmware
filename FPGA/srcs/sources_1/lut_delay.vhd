@@ -81,16 +81,16 @@ architecture Behavioral of lut_delay is
 begin
     
     --analog trigger buffer - diff to se
-an_trig_buff_inst: IBUFDS
-generic map (
-   DIFF_TERM => FALSE,   -- Differential Termination 
-   IBUF_LOW_PWR => TRUE, -- Low power (TRUE) vs. performance (FALSE) setting for referenced I/O standards
-   IOSTANDARD => "LVDS_25")
-port map (
-   O => an_trig,
-   I => an_trig_p,
-   IB => an_trig_n
-);
+    an_trig_buff_inst: IBUFDS
+    generic map (
+       DIFF_TERM => FALSE,   -- Differential Termination 
+       IBUF_LOW_PWR => TRUE, -- Low power (TRUE) vs. performance (FALSE) setting for referenced I/O standards
+       IOSTANDARD => "LVDS_25")
+    port map (
+       O => an_trig,
+       I => an_trig_p,
+       IB => an_trig_n
+    );
     
     -- propagate an_trig through a tapped lut chain
     -- each lut delays input signal
@@ -535,7 +535,7 @@ port map (
 	-- Xilinx HDL Libraries Guide, version 12.4
 	FDRE0_inst_0 : FDRE
 	generic map (
-	INIT => '0') -- Initial value of register (’0’ or ’1’)
+	INIT => '0') -- Initial value of register (ï¿½0ï¿½ or ï¿½1ï¿½)
 	port map (
 	D => LUT6_I(1), -- Data input
 	Q => FDRE0_Q(0), -- Data output
@@ -889,7 +889,7 @@ port map (
 	
 	FDRE1_inst_0 : FDRE
 	generic map (
-	INIT => '0') -- Initial value of register (’0’ or ’1’)
+	INIT => '0') -- Initial value of register
 	port map (
 	D => FDRE0_Q(0), -- Data input
 	Q => FDRE1_Q(0), -- Data output

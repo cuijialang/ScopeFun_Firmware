@@ -1,5 +1,5 @@
 ----------------------------------------------------------------------------------
---    Copyright (C) 2019 Dejan Priversek
+--    Copyright (C) 2019-2021 Dejan Priversek
 --
 --    This program is free software: you can redistribute it and/or modify
 --    it under the terms of the GNU General Public License as published by
@@ -1560,7 +1560,7 @@ begin
 		
 		----------------
 		--genSignal_d <= signed(dac_data)-to_signed(2048,12);   --signed(dac_data_rising);
-		clearflags_d <= clearflags OR frameSaveRst;
+		clearflags_d <= clearflags;
 		holdOff_d <= holdOff;
 		
 		-- detect requestFrame rising edge (new frame request)
@@ -1585,7 +1585,7 @@ begin
         
         ScopeConfigChanged_d <= ScopeConfigChanged;
         ScopeConfigChanged_dd <= ScopeConfigChanged_d;
-            
+        	  
 		--=======================================================--
 		--         Save ADC samples to buffer                    --
 		--=======================================================--
@@ -1690,7 +1690,6 @@ begin
 				roll <= '0';
 				triggered_led <= '0';
 				dt_enable <= '0';
-				frameSaveRst <= '0';
 				
 				if ( getNewFrame = '1' AND clearflags_d = '0' and ram_rdy = '1' ) then
 					PreTrigSaving <= '1';
@@ -1698,7 +1697,7 @@ begin
 					framesize_d <= framesize;     -- save current frame size
 					pre_trigger_d <= pre_trigger; -- size of pre-trigger
 					adc_interleaving_d <= adc_interleaving;
-					GetSampleState <= ADC_B;   -- goto "PRE-TRIGGER"				
+					GetSampleState <= ADC_B;   -- goto "PRE-TRIGGER"			
 					
 				else
 					GetSampleState <= ADC_A;
@@ -1719,10 +1718,6 @@ begin
 				
 				if ( clearflags_d = '1') then
 					GetSampleState <= ADC_A;
-				-- if not triggered and configuration has changed, reset capture (go back to idle to read new config)
-				elsif ScopeConfigChanged_dd = '0' and ScopeConfigChanged_d = '1' then
-				    GetSampleState <= ADC_A;
-				    frameSaveRst <= '1';
 				-- if sample buffer is filled with pre-trigger data (note: max. pre-trigger_cnt = framesize)
 				elsif ( pre_trigger_cnt = unsigned(pre_trigger_d)) then
 					-- update saved_sample_cnt, reset pre_trigger_cnt and continue to next state
@@ -1760,13 +1755,8 @@ begin
 				if ( clearflags_d = '1') then
 				    dt_enable <= '0';
 					GetSampleState <= ADC_A;
-				-- define transition to POST-TRIGGER samples capture:
-				
-				-- if not triggered yet and configuration has changed, reset capture
-				elsif ScopeConfigChanged_dd = '0' and ScopeConfigChanged_d = '1' then
-				    GetSampleState <= ADC_A;
-				    frameSaveRst <= '1';
-				
+					
+				-- define transition to POST-TRIGGER samples capture:		
 				-- immediate trigger
 				elsif trigger_mode_d = "11" then
 				    GetSampleState <= ADC_E;
@@ -1864,7 +1854,7 @@ begin
                         GetSampleState <= ADC_D;
 				
 				-- IF AUTO:
-				elsif	ets_on_d = '0' AND ( trigger_mode_d = "00" AND (auto_trigger = '1') ) then
+				elsif	trigger_mode_d = "00" AND auto_trigger = '1' then
 					triggered_led <= '0'; -- signal IS NOT TRIGGERED indicator
 					GetSampleState <= ADC_E;
 				
@@ -1875,7 +1865,6 @@ begin
                     dt_enable <= '1';
                     
 				else
-				
 					GetSampleState <= ADC_C;
 					
 				end if;
