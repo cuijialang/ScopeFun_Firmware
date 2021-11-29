@@ -20,7 +20,7 @@
 --
 
 library IEEE;
-use IEEE.STD_LOGIC_1164.ALL;      
+use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 library IEEE_PROPOSED;
 use IEEE_PROPOSED.FIXED_PKG.ALL;
@@ -29,14 +29,14 @@ library UNISIM;
 use UNISIM.VComponents.all;
 
 entity fpga is
-	
+
 	Port (
 	-- FX3 interface
-		fdata         : inout STD_LOGIC_VECTOR(31 downto 0);	-- FIFO data lines. 
+		fdata         : inout STD_LOGIC_VECTOR(31 downto 0);	-- FIFO data lines.
 		faddr         : out STD_LOGIC_VECTOR(1 downto 0);		-- FIFO select lines
 		slcs          : out STD_LOGIC;                          -- Slave select control line
-		slwr          : out STD_LOGIC;                          -- Write control line (asserted_low)	  
-		slrd_sloe     : out STD_LOGIC;                          -- Read control line (SLOE & SLRD are tied together) 
+		slwr          : out STD_LOGIC;                          -- Write control line (asserted_low)
+		slrd_sloe     : out STD_LOGIC;                          -- Read control line (SLOE & SLRD are tied together)
 		LED           : out STD_LOGIC_VECTOR(3 downto 1);       -- LED indicators
 		flaga         : in STD_LOGIC;                           -- EP2 - OUT Empty flag (all flags acive low)
 		flagb         : in STD_LOGIC;                           -- EP4 - OUT Empty flag
@@ -44,8 +44,8 @@ entity fpga is
 		flagd         : in STD_LOGIC;                           -- EP6 - IN Full Flag
 		clk_fx3       : out STD_LOGIC;                          -- FX3 GPIF Clock
 	-- ADC interface
-        clk_adc_p     : in STD_LOGIC;           -- ADC clock LVDS p
-        clk_adc_n     : in STD_LOGIC;
+		clk_adc_p     : in STD_LOGIC;           -- ADC clock LVDS p
+		clk_adc_n     : in STD_LOGIC;
 		dataA_p       : in std_logic_vector(4 downto 0);  -- ADC CHA data (LVDS DDR)
 		dataA_n       : in std_logic_vector(4 downto 0);  -- ADC CHA data
 		dataB_p       : in std_logic_vector(4 downto 0);  -- ADC CHB data (LVDS DDR)
@@ -71,7 +71,7 @@ entity fpga is
 		dac_clk_2     : out STD_LOGIC;      -- I-DAC data clock (inverted)
 		dac_en        : out STD_LOGIC;      -- I-DAC enable
 		dac_data      : out STD_LOGIC_VECTOR (11 downto 0); -- I-DAC data lines (DDR)
-    -- Analog Trigger for CH-A ETS
+	-- Analog Trigger for CH-A ETS
 		an_trig_p     : in STD_LOGIC;  -- analog/ets trigger
 		an_trig_n     : in STD_LOGIC;  --
 		an_trig_level : out STD_LOGIC; -- analog/ets trigger level (PWM generated)
@@ -83,116 +83,116 @@ entity fpga is
 		ch1_k         : out STD_LOGIC;    -- attenuator switch
 		ch2_k         : out STD_LOGIC;
 		cc_ab         : out STD_LOGIC;    -- connect ch1 to both ADC inputs (for ADC interleaving mode)
-    -- DDR3
-        ddr3_dq      : inout std_logic_vector(15 downto 0);
-        ddr3_dqs_p   : inout std_logic_vector(1 downto 0);
-        ddr3_dqs_n   : inout std_logic_vector(1 downto 0);
-        ddr3_addr    : out std_logic_vector(14 downto 0);
-        ddr3_ba      : out std_logic_vector(2 downto 0);
-        ddr3_ras_n   : out std_logic;
-        ddr3_cas_n   : out std_logic;
-        ddr3_we_n    : out std_logic;
-        ddr3_reset_n : out std_logic;
-        ddr3_ck_p    : out std_logic_vector(0 downto 0);
-        ddr3_ck_n    : out std_logic_vector(0 downto 0);
-        ddr3_cke     : out std_logic_vector(0 downto 0);
-        ddr3_odt     : out std_logic_vector(0 downto 0) 
-	   );				 	            
+	-- DDR3
+		ddr3_dq      : inout std_logic_vector(15 downto 0);
+		ddr3_dqs_p   : inout std_logic_vector(1 downto 0);
+		ddr3_dqs_n   : inout std_logic_vector(1 downto 0);
+		ddr3_addr    : out std_logic_vector(14 downto 0);
+		ddr3_ba      : out std_logic_vector(2 downto 0);
+		ddr3_ras_n   : out std_logic;
+		ddr3_cas_n   : out std_logic;
+		ddr3_we_n    : out std_logic;
+		ddr3_reset_n : out std_logic;
+		ddr3_ck_p    : out std_logic_vector(0 downto 0);
+		ddr3_ck_n    : out std_logic_vector(0 downto 0);
+		ddr3_cke     : out std_logic_vector(0 downto 0);
+		ddr3_odt     : out std_logic_vector(0 downto 0)
+	   );
 
 end fpga;
 
 architecture rtl of fpga is
 
 	--define constants
-	
+
 	--max number of oscilloscope configuration registers
-    CONSTANT CONFIG_DATA_SIZE : integer := 32;    -- number of 32-bit Words for scope config
-    CONSTANT FRAME_HEADER_SIZE : integer := 256;  -- number of 32-bit Words for frame header
-    CONSTANT DDR3_MAX_SAMPLES : integer := 2**27; -- 2^27 = 128M samples
-    CONSTANT AWG_MAX_SAMPLES : integer := 32768;  -- number of samples for AWG custom signal and dig. pattern generator
-    --CONSTANT AWG_MAX_SAMPLES : integer := 4096;
-    --digital ch. interface width
-    CONSTANT LA_DATA_WIDTH : INTEGER := 12;
-    CONSTANT LA_COUNTER_WIDTH : INTEGER := 16;
-    --USB buffers
-    CONSTANT FX3_DMA_BUFFER_SIZE : INTEGER := 1024;  -- FX3 DMA BUFER SIZE (number of bytes)
-    
-    CONSTANT bH : INTEGER := 14;  -- sfixed high index
-    CONSTANT bL : INTEGER := -17; -- sfixed low index
-   
-    CONSTANT DATA_DEPTH: integer := AWG_MAX_SAMPLES;
-    CONSTANT DATA_WIDTH: integer := 12;
-    
-    component adc_if is
-    Port ( 
-        i_clk_p : in STD_LOGIC;
-        i_clk_n : in STD_LOGIC;
-        i_clk_ref : in std_logic;
-        i_reset_n : in std_logic;
-        i_en_fifo : in std_logic;
-        i_read_calib_start : in std_logic;
-        i_read_calib_source : in std_logic;
-        i_data_1_p : in STD_LOGIC_VECTOR (4 downto 0);
-        i_data_1_n : in STD_LOGIC_VECTOR (4 downto 0);
-        i_data_2_p : in STD_LOGIC_VECTOR (4 downto 0);
-        i_data_2_n : in STD_LOGIC_VECTOR (4 downto 0);
-        o_clk : out STD_LOGIC;
-        o_data_1 : out STD_LOGIC_VECTOR (9 downto 0);
-        o_data_2 : out STD_LOGIC_VECTOR (9 downto 0));
-    end component;
-     
-    component RAM_DDR3 is
-    port (
-       -- TOP level signals
-       sys_clk_i : in std_logic; -- System clock 250 Mhz
-       clk_ref_i : in std_logic; -- Reference clock 200 Mhz
-       ui_clk : out std_logic; -- Output clock for user logic (100 Mhz)
-       rst : in STD_LOGIC;
-       FrameSize : in std_logic_vector(26 downto 0);
-       DataIn : in STD_LOGIC_VECTOR (31 downto 0);
-       PreTrigSaving : in std_logic;  -- assrted (de-asserted) at start (end) of pre-trigger
-       PreTrigWriteEn : in std_logic; -- pre-trigger data write enable
-       PreTrigLen : in std_logic_vector(26 downto 0); -- number of pre-trigger samples 
-       DataWriteEn : in STD_LOGIC;
-       FrameSaveEnd : in STD_LOGIC;
-       DataOut : out STD_LOGIC_VECTOR (31 downto 0);
-       DataOutEnable : in std_logic;
-       DataOutValid : out STD_LOGIC;
-       ReadingFrame : in std_logic;
-       ram_rdy : out std_logic;
-       init_calib_complete : out STD_LOGIC;
-       device_temp : out std_logic_vector(11 downto 0);
-       -- DDR3 PHY
-       -- Inouts
-       ddr3_dq      : inout std_logic_vector(15 downto 0);
-       ddr3_dqs_p   : inout std_logic_vector(1 downto 0);
-       ddr3_dqs_n   : inout std_logic_vector(1 downto 0);
-       -- Outputs 
-       ddr3_addr    : out   std_logic_vector(14 downto 0);
-       ddr3_ba      : out   std_logic_vector(2 downto 0);
-       ddr3_ras_n   : out   std_logic;
-       ddr3_cas_n   : out   std_logic;
-       ddr3_we_n    : out   std_logic;
-       ddr3_reset_n : out   std_logic;
-       ddr3_ck_p    : out   std_logic_vector(0 downto 0);
-       ddr3_ck_n    : out   std_logic_vector(0 downto 0);
-       ddr3_cke     : out   std_logic_vector(0 downto 0);
-       ddr3_odt     : out   std_logic_vector(0 downto 0) 
-       );
-    end component;
-  
-	component SDP_RAM_64x32b is
-      port (
-		 clk1 : in std_logic;
-         clk2 : in std_logic;
-         we   : in std_logic;
-         addr1 : in std_logic_vector(5 downto 0);
-         addr2 : in std_logic_vector(5 downto 0);
-         di1   : in std_logic_vector(31 downto 0);
-         do1  : out std_logic_vector(31 downto 0);
-         do2  : out std_logic_vector(31 downto 0));
+	CONSTANT CONFIG_DATA_SIZE : integer := 32;    -- number of 32-bit Words for scope config
+	CONSTANT FRAME_HEADER_SIZE : integer := 256;  -- number of 32-bit Words for frame header
+	CONSTANT DDR3_MAX_SAMPLES : integer := 2**27; -- 2^27 = 128M samples
+	CONSTANT AWG_MAX_SAMPLES : integer := 32768;  -- number of samples for AWG custom signal and dig. pattern generator
+	--CONSTANT AWG_MAX_SAMPLES : integer := 4096;
+	--digital ch. interface width
+	CONSTANT LA_DATA_WIDTH : INTEGER := 12;
+	CONSTANT LA_COUNTER_WIDTH : INTEGER := 16;
+	--USB buffers
+	CONSTANT FX3_DMA_BUFFER_SIZE : INTEGER := 1024;  -- FX3 DMA BUFER SIZE (number of bytes)
+
+	CONSTANT bH : INTEGER := 14;  -- sfixed high index
+	CONSTANT bL : INTEGER := -17; -- sfixed low index
+
+	CONSTANT DATA_DEPTH: integer := AWG_MAX_SAMPLES;
+	CONSTANT DATA_WIDTH: integer := 12;
+
+	component adc_if is
+	Port (
+		i_clk_p : in STD_LOGIC;
+		i_clk_n : in STD_LOGIC;
+		i_clk_ref : in std_logic;
+		i_reset_n : in std_logic;
+		i_en_fifo : in std_logic;
+		i_read_calib_start : in std_logic;
+		i_read_calib_source : in std_logic;
+		i_data_1_p : in STD_LOGIC_VECTOR (4 downto 0);
+		i_data_1_n : in STD_LOGIC_VECTOR (4 downto 0);
+		i_data_2_p : in STD_LOGIC_VECTOR (4 downto 0);
+		i_data_2_n : in STD_LOGIC_VECTOR (4 downto 0);
+		o_clk : out STD_LOGIC;
+		o_data_1 : out STD_LOGIC_VECTOR (9 downto 0);
+		o_data_2 : out STD_LOGIC_VECTOR (9 downto 0));
 	end component;
-	
+
+	component RAM_DDR3 is
+	port (
+	   -- TOP level signals
+	   sys_clk_i : in std_logic; -- System clock 250 Mhz
+	   clk_ref_i : in std_logic; -- Reference clock 200 Mhz
+	   ui_clk : out std_logic; -- Output clock for user logic (100 Mhz)
+	   rst : in STD_LOGIC;
+	   FrameSize : in std_logic_vector(26 downto 0);
+	   DataIn : in STD_LOGIC_VECTOR (31 downto 0);
+	   PreTrigSaving : in std_logic;  -- assrted (de-asserted) at start (end) of pre-trigger
+	   PreTrigWriteEn : in std_logic; -- pre-trigger data write enable
+	   PreTrigLen : in std_logic_vector(26 downto 0); -- number of pre-trigger samples
+	   DataWriteEn : in STD_LOGIC;
+	   FrameSaveEnd : in STD_LOGIC;
+	   DataOut : out STD_LOGIC_VECTOR (31 downto 0);
+	   DataOutEnable : in std_logic;
+	   DataOutValid : out STD_LOGIC;
+	   ReadingFrame : in std_logic;
+	   ram_rdy : out std_logic;
+	   init_calib_complete : out STD_LOGIC;
+	   device_temp : out std_logic_vector(11 downto 0);
+	   -- DDR3 PHY
+	   -- Inouts
+	   ddr3_dq      : inout std_logic_vector(15 downto 0);
+	   ddr3_dqs_p   : inout std_logic_vector(1 downto 0);
+	   ddr3_dqs_n   : inout std_logic_vector(1 downto 0);
+	   -- Outputs
+	   ddr3_addr    : out   std_logic_vector(14 downto 0);
+	   ddr3_ba      : out   std_logic_vector(2 downto 0);
+	   ddr3_ras_n   : out   std_logic;
+	   ddr3_cas_n   : out   std_logic;
+	   ddr3_we_n    : out   std_logic;
+	   ddr3_reset_n : out   std_logic;
+	   ddr3_ck_p    : out   std_logic_vector(0 downto 0);
+	   ddr3_ck_n    : out   std_logic_vector(0 downto 0);
+	   ddr3_cke     : out   std_logic_vector(0 downto 0);
+	   ddr3_odt     : out   std_logic_vector(0 downto 0)
+	   );
+	end component;
+
+	component SDP_RAM_64x32b is
+	  port (
+		 clk1 : in std_logic;
+		 clk2 : in std_logic;
+		 we   : in std_logic;
+		 addr1 : in std_logic_vector(5 downto 0);
+		 addr2 : in std_logic_vector(5 downto 0);
+		 di1   : in std_logic_vector(31 downto 0);
+		 do1  : out std_logic_vector(31 downto 0);
+		 do2  : out std_logic_vector(31 downto 0));
+	end component;
+
 --    component SDP_BRAM_10240x36b
 --       port(
 --          clka : IN  std_logic;
@@ -203,12 +203,12 @@ architecture rtl of fpga is
 --          addrb : IN  std_logic_vector(13 downto 0);
 --          doutb : OUT  std_logic_vector(35 downto 0));
 --   end component;
-	 
+
 	component SDP_BRAM_custom_signal
 	  generic (
-          DATA_DEPTH : integer;
-          DATA_WIDTH : integer 
-       );
+		  DATA_DEPTH : integer;
+		  DATA_WIDTH : integer
+	   );
 	   port (
 	      clka: IN std_logic;
 			wea: IN std_logic;
@@ -218,48 +218,48 @@ architecture rtl of fpga is
 			addrb: IN std_logic_VECTOR(14 downto 0);
 			doutb: OUT std_logic_VECTOR(11 downto 0));
    end component;
-		
+
 	component pwm -- PWM generated DC voltage (ets trigger level)
 	 Port ( clk : in  STD_LOGIC;
-           v_set : in  STD_LOGIC_VECTOR (9 downto 0);
-           pwm_out : out  STD_LOGIC);
+		   v_set : in  STD_LOGIC_VECTOR (9 downto 0);
+		   pwm_out : out  STD_LOGIC);
 	end component;
 
 	component lut_delay is
-    Port ( clk : in  STD_LOGIC;
+	Port ( clk : in  STD_LOGIC;
 		   rst : in STD_LOGIC;
-           an_trig_p : in  STD_LOGIC;
-           an_trig_n : in  STD_LOGIC;
+		   an_trig_p : in  STD_LOGIC;
+		   an_trig_n : in  STD_LOGIC;
 		   an_trig_d : out STD_LOGIC;
-           tap_reg_out : out  STD_LOGIC_VECTOR (31 downto 0)
+		   tap_reg_out : out  STD_LOGIC_VECTOR (31 downto 0)
 			  );
 	end component;
-	
-    component awg_core is
-    Port (  clk_in : in  STD_LOGIC;
-            --clk enable
-            generator1On : in STD_LOGIC;
-            generator2On : in STD_LOGIC;
-            phase_sync : in STD_LOGIC;
-            phase_val : in STD_LOGIC_VECTOR(bH downto 0);
+
+	component awg_core is
+	Port (  clk_in : in  STD_LOGIC;
+			--clk enable
+			generator1On : in STD_LOGIC;
+			generator2On : in STD_LOGIC;
+			phase_sync : in STD_LOGIC;
+			phase_val : in STD_LOGIC_VECTOR(bH downto 0);
 			--AWG1
 			genSignal_1     : out signed (11 downto 0);
 			ram_addrb_awg_1 : out STD_LOGIC_VECTOR (14 downto 0);
 			generatorType_1 : in  STD_LOGIC_VECTOR (3 downto 0);
-            generatorVoltage_1 : in  sfixed(0 downto -11);
-            generatorOffset_1 : in  SIGNED (11 downto 0);
-            generatorDuty_1 : in  signed(11 downto 0);
-            generatorDelta_1 : in  STD_LOGIC_VECTOR(bH-bL downto 0);
-            generatorCustomSample_1 : in  STD_LOGIC_VECTOR (11 downto 0);
+			generatorVoltage_1 : in  sfixed(0 downto -11);
+			generatorOffset_1 : in  SIGNED (11 downto 0);
+			generatorDuty_1 : in  signed(11 downto 0);
+			generatorDelta_1 : in  STD_LOGIC_VECTOR(bH-bL downto 0);
+			generatorCustomSample_1 : in  STD_LOGIC_VECTOR (11 downto 0);
 			--AWG2
 			genSignal_2     : out signed (11 downto 0);
 			ram_addrb_awg_2 : out STD_LOGIC_VECTOR (14 downto 0);
 			generatorType_2 : in  STD_LOGIC_VECTOR (3 downto 0);
-            generatorVoltage_2 : in  sfixed(0 downto -11);
-            generatorOffset_2 : in  SIGNED (11 downto 0);
-            generatorDuty_2 : in  signed(11 downto 0);
-            generatorDelta_2 : in  STD_LOGIC_VECTOR(bH-bL downto 0);
-            generatorCustomSample_2 : in  STD_LOGIC_VECTOR (11 downto 0);
+			generatorVoltage_2 : in  sfixed(0 downto -11);
+			generatorOffset_2 : in  SIGNED (11 downto 0);
+			generatorDuty_2 : in  signed(11 downto 0);
+			generatorDelta_2 : in  STD_LOGIC_VECTOR(bH-bL downto 0);
+			generatorCustomSample_2 : in  STD_LOGIC_VECTOR (11 downto 0);
 			--DAC programming signals
 			dac_data_1 : out STD_LOGIC_VECTOR (11 downto 0);
 			dac_data_2 : out STD_LOGIC_VECTOR (11 downto 0);
@@ -267,133 +267,133 @@ architecture rtl of fpga is
 --			awg_select : out STD_LOGIC
 			);
 	 end component;
-	 
+
 	 component se_to_ddr is
-         Port ( i_clk : in std_logic;
-                o_clk : out std_logic;
-                o_clk_inv  : out std_logic;
-                i_data_1 : in std_logic_vector (11 downto 0);
-                i_data_2 : in std_logic_vector (11 downto 0);
-                o_data_ddr : out std_logic_vector (11 downto 0);
-                pll_locked : out std_logic
-                );
-     end component;
-	 
+		 Port ( i_clk : in std_logic;
+				o_clk : out std_logic;
+				o_clk_inv  : out std_logic;
+				i_data_1 : in std_logic_vector (11 downto 0);
+				i_data_2 : in std_logic_vector (11 downto 0);
+				o_data_ddr : out std_logic_vector (11 downto 0);
+				pll_locked : out std_logic
+				);
+	 end component;
+
 	 component spi is
 	  generic (
-            SPI_LENGTH : integer -- NUMBER OF BITS TRANSFERED
-            );
-	  Port ( clk : in  std_logic;				
+			SPI_LENGTH : integer -- NUMBER OF BITS TRANSFERED
+			);
+	  Port ( clk : in  std_logic;
 		     rst : in std_logic;
 		     clk_divide : in std_logic_vector (4 downto 0);
 			 spi_data : in  std_logic_vector (SPI_LENGTH-1 downto 0);
-			 spi_write_trig : in std_logic;	
+			 spi_write_trig : in std_logic;
 			 sck_idle_value : in std_logic;
 			 spi_busy : out std_logic;
-             cs : out  std_logic;				
-             sck : out  std_logic;			
-             si : out  std_logic
-			 );			
+			 cs : out  std_logic;
+			 sck : out  std_logic;
+			 si : out  std_logic
+			 );
 	end component;
-	
+
 	COMPONENT timer
 	PORT(
 		clk : IN std_logic;
 		t_reset : IN std_logic;
 		t_start : IN std_logic;
-		holdoff : IN std_logic_vector(31 downto 0);          
+		holdoff : IN std_logic_vector(31 downto 0);
 		o_end : OUT std_logic
 		);
 	END COMPONENT;
-	
+
 	COMPONENT blink
 	PORT(
 		clk : IN std_logic;
 		reset : IN std_logic;
-		trigd : IN std_logic;          
+		trigd : IN std_logic;
 		led_out : OUT std_logic
 		);
 	END COMPONENT;
-	
+
 	COMPONENT clk_divider_wCE
 	PORT(
 		clk : IN std_logic;
 		reset : IN std_logic;
-		timebase : IN std_logic_vector(4 downto 0);          
+		timebase : IN std_logic_vector(4 downto 0);
 		out_CE : OUT std_logic
 		);
 	END COMPONENT;
-    
-    -- Logic analyzer
-    component LA_core
-        generic (
-        LA_DATA_WIDTH : integer := LA_DATA_WIDTH;    -- Data input width
-        LA_COUNTER_WIDTH : integer := LA_COUNTER_WIDTH -- Stage Counter width
-    );
-    Port ( clk_in : in std_logic;
-           dt_enable : in std_logic;
-           dataD : in std_logic_vector (LA_DATA_WIDTH-1 downto 0);
-           digital_trig_mask_0 : in std_logic_vector (LA_DATA_WIDTH-1 downto 0);
-           digital_trig_mask_1 : in std_logic_vector (LA_DATA_WIDTH-1 downto 0);
-           digital_trig_mask_2 : in std_logic_vector (LA_DATA_WIDTH-1 downto 0);
-           digital_trig_mask_3 : in std_logic_vector (LA_DATA_WIDTH-1 downto 0);
-           digital_trig_patternA_0 : in std_logic_vector (LA_DATA_WIDTH-1 downto 0);
-           digital_trig_patternA_1 : in std_logic_vector (LA_DATA_WIDTH-1 downto 0);
-           digital_trig_patternA_2 : in std_logic_vector (LA_DATA_WIDTH-1 downto 0);
-           digital_trig_patternA_3 : in std_logic_vector (LA_DATA_WIDTH-1 downto 0);
-           digital_trig_patternB_0 : in std_logic_vector (LA_DATA_WIDTH-1 downto 0);
-           digital_trig_patternB_1 : in std_logic_vector (LA_DATA_WIDTH-1 downto 0);
-           digital_trig_patternB_2 : in std_logic_vector (LA_DATA_WIDTH-1 downto 0);
-           digital_trig_patternB_3 : in std_logic_vector (LA_DATA_WIDTH-1 downto 0);
-           dt_stage_capture : in std_logic_vector (1 downto 0);
-           dt_delaymaxcnt_0 : in std_logic_vector (LA_COUNTER_WIDTH-1 downto 0);
-           dt_delaymaxcnt_1 : in std_logic_vector (LA_COUNTER_WIDTH-1 downto 0);
-           dt_delaymaxcnt_2 : in std_logic_vector (LA_COUNTER_WIDTH-1 downto 0);
-           dt_delaymaxcnt_3 : in std_logic_vector (LA_COUNTER_WIDTH-1 downto 0);
-           dtSerial : in std_logic;
-           dtSerialCh : in std_logic_vector (3 downto 0);
-           dt_triggered : out std_logic;
-           reset : in std_logic);
-    end component;
 
-    -- Create 200 Mhz clk_ref
-    component clk_gen_pll
-    Port ( clk_in : in STD_LOGIC;
-           clk_out_1 : out STD_LOGIC;
-           clk_out_2 : out STD_LOGIC;
-           pll_locked : out STD_LOGIC);
-    end component;
-
-    component clk_wiz_0
-    port
-     (-- Clock in ports
-      -- Clock out ports
-      clk_out1          : out    std_logic;
-      clk_out2          : out    std_logic;
-      -- Status and control signals
-      reset             : in     std_logic;
-      locked            : out    std_logic;
-      clk_in1           : in     std_logic
-     );
-    end component;
-    
-	component mavg is
-    generic (
-        MAX_MAVG_LEN_LOG  : integer := 2
-    );
-    port (
-        i_clk         : in  std_logic;
-        i_rst         : in  std_logic;
-        -- input
-        mavg_len_log  : in integer range 0 to MAX_MAVG_LEN_LOG;
-        i_data_en     : in  std_logic;
-        i_data        : in  std_logic_vector(9 downto 0);
-        -- output
-        o_data_valid  : out std_logic;
-        o_data        : out std_logic_vector(9 downto 0));
+	-- Logic analyzer
+	component LA_core
+		generic (
+		LA_DATA_WIDTH : integer := LA_DATA_WIDTH;    -- Data input width
+		LA_COUNTER_WIDTH : integer := LA_COUNTER_WIDTH -- Stage Counter width
+	);
+	Port ( clk_in : in std_logic;
+		   dt_enable : in std_logic;
+		   dataD : in std_logic_vector (LA_DATA_WIDTH-1 downto 0);
+		   digital_trig_mask_0 : in std_logic_vector (LA_DATA_WIDTH-1 downto 0);
+		   digital_trig_mask_1 : in std_logic_vector (LA_DATA_WIDTH-1 downto 0);
+		   digital_trig_mask_2 : in std_logic_vector (LA_DATA_WIDTH-1 downto 0);
+		   digital_trig_mask_3 : in std_logic_vector (LA_DATA_WIDTH-1 downto 0);
+		   digital_trig_patternA_0 : in std_logic_vector (LA_DATA_WIDTH-1 downto 0);
+		   digital_trig_patternA_1 : in std_logic_vector (LA_DATA_WIDTH-1 downto 0);
+		   digital_trig_patternA_2 : in std_logic_vector (LA_DATA_WIDTH-1 downto 0);
+		   digital_trig_patternA_3 : in std_logic_vector (LA_DATA_WIDTH-1 downto 0);
+		   digital_trig_patternB_0 : in std_logic_vector (LA_DATA_WIDTH-1 downto 0);
+		   digital_trig_patternB_1 : in std_logic_vector (LA_DATA_WIDTH-1 downto 0);
+		   digital_trig_patternB_2 : in std_logic_vector (LA_DATA_WIDTH-1 downto 0);
+		   digital_trig_patternB_3 : in std_logic_vector (LA_DATA_WIDTH-1 downto 0);
+		   dt_stage_capture : in std_logic_vector (1 downto 0);
+		   dt_delaymaxcnt_0 : in std_logic_vector (LA_COUNTER_WIDTH-1 downto 0);
+		   dt_delaymaxcnt_1 : in std_logic_vector (LA_COUNTER_WIDTH-1 downto 0);
+		   dt_delaymaxcnt_2 : in std_logic_vector (LA_COUNTER_WIDTH-1 downto 0);
+		   dt_delaymaxcnt_3 : in std_logic_vector (LA_COUNTER_WIDTH-1 downto 0);
+		   dtSerial : in std_logic;
+		   dtSerialCh : in std_logic_vector (3 downto 0);
+		   dt_triggered : out std_logic;
+		   reset : in std_logic);
 	end component;
 
-signal clk_adc_dclk : std_logic;    
+	-- Create 200 Mhz clk_ref
+	component clk_gen_pll
+	Port ( clk_in : in STD_LOGIC;
+		   clk_out_1 : out STD_LOGIC;
+		   clk_out_2 : out STD_LOGIC;
+		   pll_locked : out STD_LOGIC);
+	end component;
+
+	component clk_wiz_0
+	port
+	 (-- Clock in ports
+	  -- Clock out ports
+	  clk_out1          : out    std_logic;
+	  clk_out2          : out    std_logic;
+	  -- Status and control signals
+	  reset             : in     std_logic;
+	  locked            : out    std_logic;
+	  clk_in1           : in     std_logic
+	 );
+	end component;
+
+	component mavg is
+	generic (
+		MAX_MAVG_LEN_LOG  : integer := 2
+	);
+	port (
+		i_clk         : in  std_logic;
+		i_rst         : in  std_logic;
+		-- input
+		mavg_len_log  : in integer range 0 to MAX_MAVG_LEN_LOG;
+		i_data_en     : in  std_logic;
+		i_data        : in  std_logic_vector(9 downto 0);
+		-- output
+		o_data_valid  : out std_logic;
+		o_data        : out std_logic_vector(9 downto 0));
+	end component;
+
+signal clk_adc_dclk : std_logic;
 signal clk_adc_p_delayed : std_logic;
 signal clk_adc_n_delayed : std_logic;
 
@@ -434,7 +434,7 @@ signal flagd_dd : STD_LOGIC;
 signal slwr_assert_cnt : integer range 0 to (FX3_DMA_BUFFER_SIZE/4) := 0;
 signal flag_ep6_ready : std_logic;
 signal cnt_after_flagd : integer range 0 to 7;
-signal faddr_i     : STD_LOGIC_VECTOR(1 downto 0); 
+signal faddr_i     : STD_LOGIC_VECTOR(1 downto 0);
 signal slrd_i      : STD_LOGIC:='1';
 signal slwr_i      : STD_LOGIC:='1';
 signal sloe_i 		 : STD_LOGIC:='1';
@@ -477,7 +477,7 @@ signal slrd_rdy_cnt : integer range 0 to 7 := 0;
 signal slrd_cnt : integer range 0 to FX3_DMA_BUFFER_SIZE-1 := 0;
 
 -- flags --
-signal slwr_assert : STD_LOGIC := '1'; -- initally, FX3 buffer is empty			
+signal slwr_assert : STD_LOGIC := '1'; -- initally, FX3 buffer is empty
 signal get_new_frame_flag : STD_LOGIC;
 signal get_new_frame_flag_d : STD_LOGIC; -- delayed get_new_frame_flag signal (for edge synchronization)
 signal get_new_frame_flag_dd : STD_LOGIC;		-- 2 clk delayed get_new_frame_flag signal (for edge synchronization)
@@ -486,7 +486,7 @@ signal new_frame_ready_flag : STD_LOGIC;
 signal new_frame_ready_flag_d : STD_LOGIC;
 signal cordic_complete_flag : STD_LOGIC;
 signal gl_reset : std_logic := '0';  -- global reset (Minimum Reset pulse width for idelayctrl = 60 ns)
-                                     -- Reset to ready for IDELAYCTRL = 3.67 us
+									 -- Reset to ready for IDELAYCTRL = 3.67 us
 --signal gl_reset_i : std_logic := '1';
 
 signal ConfigureADC : std_logic :='0';
@@ -806,7 +806,7 @@ signal adc_clk_divide_maxcnt : integer range 0 to 199999999;
 --signal Timer_cnt : integer range 0 to 4095 := 0;
 signal Timer_cnt : integer range 0 to (2**26)-1 := 0;
 signal startup_timer_cnt : integer range 0 to 250000 := 0;
-signal clk_div_cnt : integer range 0 to 100*(10**6); 
+signal clk_div_cnt : integer range 0 to 100*(10**6);
 signal clk_div_cnt_2 : integer range 0 to 250*(10**6);
 signal cnt_rd_last : std_logic := '0';
 signal cnt_dw_stop : integer range 0 to 7 := 0;
@@ -1028,58 +1028,58 @@ begin
 
 ADC_interface: adc_if
 port map (
-    i_clk_p => clk_adc_p,
-    i_clk_n => clk_adc_n,
-    i_clk_ref => clk_ref_i,
-    i_reset_n => pll_locked,
-    i_en_fifo => calib_done,
-    i_read_calib_start => read_calib_start,
-    i_read_calib_source => read_calib_source,
-    i_data_1_p => dataA_p,
-    i_data_1_n => dataA_n, 
-    i_data_2_p => dataB_p, 
-    i_data_2_n => dataB_n,     
-    o_clk => clk_adc_dclk,
-    o_data_1 => dataA,
-    o_data_2 => dataB
-    );
-    
+	i_clk_p => clk_adc_p,
+	i_clk_n => clk_adc_n,
+	i_clk_ref => clk_ref_i,
+	i_reset_n => pll_locked,
+	i_en_fifo => calib_done,
+	i_read_calib_start => read_calib_start,
+	i_read_calib_source => read_calib_source,
+	i_data_1_p => dataA_p,
+	i_data_1_n => dataA_n,
+	i_data_2_p => dataB_p,
+	i_data_2_n => dataB_n,
+	o_clk => clk_adc_dclk,
+	o_data_1 => dataA,
+	o_data_2 => dataB
+	);
+
 RAM_DDR3_inst: RAM_DDR3
 port map (
-       -- TOP level signals
-       sys_clk_i => clk_adc_dclk,
-       clk_ref_i => clk_ref_i,
-       ui_clk => ifclk,
-       rst => clearflags,
-       FrameSize => framesize_dd,
-       DataIn => DDR3DataIn,
-       PreTrigSaving => PreTrigSaving,
-       PreTrigWriteEn => PreTrigWriteEn_d,
-       PreTrigLen => std_logic_vector(pre_trigger_d),
-       DataWriteEn => DataWriteEn_d,
-       FrameSaveEnd => t_start,
-       DataOut => DataOut,
-       DataOutEnable => DataOutEnable,
-       DataOutValid => DataOutValid,
-       ReadingFrame => ReadingFrame,
-       ram_rdy => ram_rdy,
-       init_calib_complete => init_calib_complete,
-       device_temp => device_temp,
-       ddr3_dq      => ddr3_dq,    
-       ddr3_dqs_p   => ddr3_dqs_p,  
-       ddr3_dqs_n   => ddr3_dqs_n,  
-       ddr3_addr    => ddr3_addr,   
-       ddr3_ba      => ddr3_ba,     
-       ddr3_ras_n   => ddr3_ras_n,  
-       ddr3_cas_n   => ddr3_cas_n,  
-       ddr3_we_n    => ddr3_we_n,   
-       ddr3_reset_n => ddr3_reset_n,
-       ddr3_ck_p    => ddr3_ck_p,   
-       ddr3_ck_n    => ddr3_ck_n,   
-       ddr3_cke     => ddr3_cke,
-       ddr3_odt     => ddr3_odt
+	   -- TOP level signals
+	   sys_clk_i => clk_adc_dclk,
+	   clk_ref_i => clk_ref_i,
+	   ui_clk => ifclk,
+	   rst => clearflags,
+	   FrameSize => framesize_dd,
+	   DataIn => DDR3DataIn,
+	   PreTrigSaving => PreTrigSaving,
+	   PreTrigWriteEn => PreTrigWriteEn_d,
+	   PreTrigLen => std_logic_vector(pre_trigger_d),
+	   DataWriteEn => DataWriteEn_d,
+	   FrameSaveEnd => t_start,
+	   DataOut => DataOut,
+	   DataOutEnable => DataOutEnable,
+	   DataOutValid => DataOutValid,
+	   ReadingFrame => ReadingFrame,
+	   ram_rdy => ram_rdy,
+	   init_calib_complete => init_calib_complete,
+	   device_temp => device_temp,
+	   ddr3_dq      => ddr3_dq,
+	   ddr3_dqs_p   => ddr3_dqs_p,
+	   ddr3_dqs_n   => ddr3_dqs_n,
+	   ddr3_addr    => ddr3_addr,
+	   ddr3_ba      => ddr3_ba,
+	   ddr3_ras_n   => ddr3_ras_n,
+	   ddr3_cas_n   => ddr3_cas_n,
+	   ddr3_we_n    => ddr3_we_n,
+	   ddr3_reset_n => ddr3_reset_n,
+	   ddr3_ck_p    => ddr3_ck_p,
+	   ddr3_ck_n    => ddr3_ck_n,
+	   ddr3_cke     => ddr3_cke,
+	   ddr3_odt     => ddr3_odt
 );
- 
+
 --sample_buffer: SDP_BRAM_10240x36b
 --	port map (
 --         clka => clk_adc_dclk,
@@ -1089,7 +1089,7 @@ port map (
 --         clkb => ifclk,
 --         addrb => addrb,
 --         doutb => doutb
---       );	  
+--       );
 
 config_RAM: SDP_RAM_64x32b
 	port map (
@@ -1104,7 +1104,7 @@ config_RAM: SDP_RAM_64x32b
 	);
 
 awg_custom_signal: SDP_BRAM_custom_signal
-    generic map (DATA_DEPTH => AWG_MAX_SAMPLES, DATA_WIDTH => 12)
+	generic map (DATA_DEPTH => AWG_MAX_SAMPLES, DATA_WIDTH => 12)
 	port map (
 		clka => ifclk, -- RAM write clk
 		wea => wea_awg,
@@ -1113,9 +1113,9 @@ awg_custom_signal: SDP_BRAM_custom_signal
 		clkb => clk_gen, -- RAM read clk
 		addrb => addrb_awg,
 		doutb => doutb_awg);
-		
+
 awg2_custom_signal: SDP_BRAM_custom_signal
-    generic map (DATA_DEPTH => AWG_MAX_SAMPLES, DATA_WIDTH => 12)
+	generic map (DATA_DEPTH => AWG_MAX_SAMPLES, DATA_WIDTH => 12)
 	port map (
 		clka => ifclk, -- RAM write clk
 		wea => wea_awg2,
@@ -1126,7 +1126,7 @@ awg2_custom_signal: SDP_BRAM_custom_signal
 		doutb => doutb_awg2);
 
 dig_custom_signal: SDP_BRAM_custom_signal
-    generic map (DATA_DEPTH => AWG_MAX_SAMPLES, DATA_WIDTH => 12)
+	generic map (DATA_DEPTH => AWG_MAX_SAMPLES, DATA_WIDTH => 12)
 	port map (
 		clka => ifclk, -- RAM write clk
 		wea => wea_dig,
@@ -1145,7 +1145,7 @@ lut_delay_inst: lut_delay
 		an_trig_d => an_trig_d,
 		tap_reg_out => lut_reg_out
 		);
-		
+
 signal_generator_inst: awg_core
 port map (
 	    clk_in => clk_gen,
@@ -1171,75 +1171,75 @@ port map (
 	    generatorOffset_2 => generator2Offset,
 	    generatorDuty_2 => generator2Duty,
 	    generatorDelta_2 => generator2Delta,
-	    generatorCustomSample_2 => doutb_awg2,	
+	    generatorCustomSample_2 => doutb_awg2,
    	    --DAC programming signals
 	    dac_data_1 => dac_data_1,
 	    dac_data_2 => dac_data_2,
 	    dac_clk => dac_clk
 		);
-			
+
 dac_interface: se_to_ddr
 port map (
-        i_clk => dac_clk,
-        o_clk => dac_clk_1,
-        o_clk_inv => dac_clk_2,
-        i_data_1 => dac_data_1,
-        i_data_2 => dac_data_2,
-        o_data_ddr => dac_data,
-        pll_locked => dac_pll_locked
-        );        
-        
+		i_clk => dac_clk,
+		o_clk => dac_clk_1,
+		o_clk_inv => dac_clk_2,
+		i_data_1 => dac_data_1,
+		i_data_2 => dac_data_2,
+		o_data_ddr => dac_data,
+		pll_locked => dac_pll_locked
+		);
+
 pwm_output_inst: pwm
 port map (
 		clk => clk_adc_dclk,
-        v_set => AnalogTrigTresh,
-        pwm_out => an_trig_level
+		v_set => AnalogTrigTresh,
+		pwm_out => an_trig_level
 		);
-		
+
 dpot_spi_interface: spi
 generic map (SPI_LENGTH => 16)
 port map (
 		clk => ifclk,
-        rst => '0',
-        clk_divide => "11111",					    -- POT:0, POT:1 are midscale after power-up
-        spi_data =>	dpot_spi_WiperCode,
-        spi_write_trig => dpot_spi_write_trig,
+		rst => '0',
+		clk_divide => "11111",					    -- POT:0, POT:1 are midscale after power-up
+		spi_data =>	dpot_spi_WiperCode,
+		spi_write_trig => dpot_spi_write_trig,
 		sck_idle_value => '1',
 		spi_busy => dpot_spi_busy,
-        cs => dpot_cs,
-        sck => dpot_sck,
-        si => dpot_si
+		cs => dpot_cs,
+		sck => dpot_sck,
+		si => dpot_si
 		);
-			
+
 ADC_CH1_spi_interface: spi
 generic map (SPI_LENGTH => 24)
 port map (
-		clk => ifclk,			
-        rst => '0',
-        --clk_divide =>	"01110",
-        clk_divide =>	"11101",
-        spi_data =>	adc_spi_data,
-        spi_write_trig =>	ConfigureADC,
+		clk => ifclk,
+		rst => '0',
+		--clk_divide =>	"01110",
+		clk_divide =>	"11101",
+		spi_data =>	adc_spi_data,
+		spi_write_trig =>	ConfigureADC,
 		sck_idle_value => '0',
 		spi_busy => adcA_spi_busy,
-        cs => adc_cs_i,				
-        sck => adc_sclk_i,			
-        si => adc_sdin_i
+		cs => adc_cs_i,
+		sck => adc_sclk_i,
+		si => adc_sdin_i
 		);
-				
+
 VDAC_spi_interface: spi
 generic map (SPI_LENGTH => 16)
 port map (
-		clk => ifclk,			
-        rst => '0',
-        --clk_divide =>	"10011",
-        clk_divide =>	"11101",
-        spi_data =>	dac_cfg_reg,
-        spi_write_trig => configureVdac,
+		clk => ifclk,
+		rst => '0',
+		--clk_divide =>	"10011",
+		clk_divide =>	"11101",
+		spi_data =>	dac_cfg_reg,
+		spi_write_trig => configureVdac,
 		sck_idle_value => '1',
 		spi_busy => dac_spi_busy,
-        cs => dac_cs_i,				
-        sck => dac_sclk_i,
+		cs => dac_cs_i,
+		sck => dac_sclk_i,
 		si => dac_sdin_i
 		);
 
@@ -1252,7 +1252,7 @@ PORT MAP(
 	o_end => o_end					--output: asserted when timer has finshed
 );
 
-trigger_led_blink: blink 
+trigger_led_blink: blink
 PORT MAP(
 	clk => ifclk,
 	reset => clearflags,
@@ -1270,33 +1270,33 @@ PORT MAP(
 
 logic_analyzer: LA_core
 port map(
-    clk_in => clk_adc_dclk,
-    dt_enable => dt_enable,            
-    dataD => dataDd, 
-    digital_trig_mask_0 => digital_trig_mask(0),
-    digital_trig_mask_1 => digital_trig_mask(1),
-    digital_trig_mask_2 => digital_trig_mask(2),
-    digital_trig_mask_3 => digital_trig_mask(3),
-    digital_trig_patternA_0 => digital_trig_patternA(0),
-    digital_trig_patternA_1 => digital_trig_patternA(1),
-    digital_trig_patternA_2 => digital_trig_patternA(2),
-    digital_trig_patternA_3 => digital_trig_patternA(3),
-    digital_trig_patternB_0 => digital_trig_patternB(0),
-    digital_trig_patternB_1 => digital_trig_patternB(1),
-    digital_trig_patternB_2 => digital_trig_patternB(2),
-    digital_trig_patternB_3 => digital_trig_patternB(3),
-    dt_stage_capture => std_logic_vector(to_unsigned(dt_stage_capture,2)),
-    dt_delayMaxcnt_0 => std_logic_vector(dt_delayMaxcnt(0)(LA_COUNTER_WIDTH-1 downto 0)),
-    dt_delayMaxcnt_1 => std_logic_vector(dt_delayMaxcnt(1)(LA_COUNTER_WIDTH-1 downto 0)),
-    dt_delayMaxcnt_2 => std_logic_vector(dt_delayMaxcnt(2)(LA_COUNTER_WIDTH-1 downto 0)),
-    dt_delayMaxcnt_3 => std_logic_vector(dt_delayMaxcnt(3)(LA_COUNTER_WIDTH-1 downto 0)),
-    dtSerial => dtSerial,
-    dtSerialCh => std_logic_vector(to_unsigned(dtSerialCh,4)),
-    dt_triggered => dt_triggered,
-    reset => clearflags_d
-    );
+	clk_in => clk_adc_dclk,
+	dt_enable => dt_enable,
+	dataD => dataDd,
+	digital_trig_mask_0 => digital_trig_mask(0),
+	digital_trig_mask_1 => digital_trig_mask(1),
+	digital_trig_mask_2 => digital_trig_mask(2),
+	digital_trig_mask_3 => digital_trig_mask(3),
+	digital_trig_patternA_0 => digital_trig_patternA(0),
+	digital_trig_patternA_1 => digital_trig_patternA(1),
+	digital_trig_patternA_2 => digital_trig_patternA(2),
+	digital_trig_patternA_3 => digital_trig_patternA(3),
+	digital_trig_patternB_0 => digital_trig_patternB(0),
+	digital_trig_patternB_1 => digital_trig_patternB(1),
+	digital_trig_patternB_2 => digital_trig_patternB(2),
+	digital_trig_patternB_3 => digital_trig_patternB(3),
+	dt_stage_capture => std_logic_vector(to_unsigned(dt_stage_capture,2)),
+	dt_delayMaxcnt_0 => std_logic_vector(dt_delayMaxcnt(0)(LA_COUNTER_WIDTH-1 downto 0)),
+	dt_delayMaxcnt_1 => std_logic_vector(dt_delayMaxcnt(1)(LA_COUNTER_WIDTH-1 downto 0)),
+	dt_delayMaxcnt_2 => std_logic_vector(dt_delayMaxcnt(2)(LA_COUNTER_WIDTH-1 downto 0)),
+	dt_delayMaxcnt_3 => std_logic_vector(dt_delayMaxcnt(3)(LA_COUNTER_WIDTH-1 downto 0)),
+	dtSerial => dtSerial,
+	dtSerialCh => std_logic_vector(to_unsigned(dtSerialCh,4)),
+	dt_triggered => dt_triggered,
+	reset => clearflags_d
+	);
 
-    -- Create 200 Mhz clk_ref
+	-- Create 200 Mhz clk_ref
 --clk_gen_pll_inst: clk_gen_pll
 --Port map ( clk_in => clk_adc_dclk,
 --           clk_out_1 => clk_ref_i,
@@ -1304,11 +1304,11 @@ port map(
 --           pll_locked => pll_locked);
 
 clk_wiz_0_pll : clk_wiz_0
-   port map ( 
-  -- Clock out ports  
+   port map (
+  -- Clock out ports
    clk_out1 => clk_ref_i,
    clk_out2 => clk_gen,
-  -- Status and control signals                
+  -- Status and control signals
    reset => pll_reset,
    locked => pll_locked,
    -- Clock in ports
@@ -1316,32 +1316,32 @@ clk_wiz_0_pll : clk_wiz_0
  );
 
 mavg_ch1: mavg
-  generic map (MAX_MAVG_LEN_LOG => 2) 
+  generic map (MAX_MAVG_LEN_LOG => 2)
   PORT MAP (
-      i_clk => clk_adc_dclk,
-      i_rst => clearflags_d,
-      mavg_len_log => 2,
-      i_data_en => mavg_enA,
-      i_data => dataA,
-      o_data_valid => mavg_datavalidA,
-      o_data => mavg_dataA
+	  i_clk => clk_adc_dclk,
+	  i_rst => clearflags_d,
+	  mavg_len_log => 2,
+	  i_data_en => mavg_enA,
+	  i_data => dataA,
+	  o_data_valid => mavg_datavalidA,
+	  o_data => mavg_dataA
 );
 
 mavg_ch2: mavg
-  generic map (MAX_MAVG_LEN_LOG => 2) 
+  generic map (MAX_MAVG_LEN_LOG => 2)
   PORT MAP (
-      i_clk => clk_adc_dclk,
-      i_rst => clearflags_d,
-      mavg_len_log => 2,
-      i_data_en => mavg_enB,
-      i_data => dataB,
-      o_data_valid => mavg_datavalidB,
-      o_data => mavg_dataB
+	  i_clk => clk_adc_dclk,
+	  i_rst => clearflags_d,
+	  mavg_len_log => 2,
+	  i_data_en => mavg_enB,
+	  i_data => dataB,
+	  o_data_valid => mavg_datavalidB,
+	  o_data => mavg_dataB
 );
 
 clk_fx3 <= not(ifclk);
 slcs <= '0';
-		
+
 LED(1) <= LED_i(1) OR NOT(init_calib_complete_d);
 LED(2) <= LED_i(2) OR NOT(init_calib_complete_d);
 LED(3) <= LED_i(3) OR NOT(init_calib_complete_d);
@@ -1365,7 +1365,7 @@ ch1_gnd <= ch1_gnd_i;
 ch2_gnd <= ch2_gnd_i;
 ch1_k <= ch1_k_i;
 ch2_k <= ch2_k_i;
-	
+
 cc_ab  <= NOT(adc_interleaving_d);
 pktend <= '1';  -- TODO: use pktend for slow capture speeds
 
@@ -1378,50 +1378,50 @@ DDR3DataIn <= std_logic_vector(dataAd) & std_logic_vector(dataBd) & dataDd(11 do
 ADC_interface_rising: process(clk_adc_dclk)
 
 begin
-	
-	if (rising_edge(clk_adc_dclk)) then	
-                                    
-        -- assert global reset after 8us and hold it for 8us
-        if startup_timer_cnt = 4000 then
-            gl_reset <= '0';
-        elsif startup_timer_cnt < 2000 then
-            gl_reset <= '0';
-            startup_timer_cnt <= startup_timer_cnt + 1;
-        else
-            gl_reset <= '1';
-            startup_timer_cnt <= startup_timer_cnt + 1;
-        end if;
-        
-        -- read digital channels
+
+	if (rising_edge(clk_adc_dclk)) then
+
+		-- assert global reset after 8us and hold it for 8us
+		if startup_timer_cnt = 4000 then
+			gl_reset <= '0';
+		elsif startup_timer_cnt < 2000 then
+			gl_reset <= '0';
+			startup_timer_cnt <= startup_timer_cnt + 1;
+		else
+			gl_reset <= '1';
+			startup_timer_cnt <= startup_timer_cnt + 1;
+		end if;
+
+		-- read digital channels
 		dataDd <= dataD;
 		--dataDd <= "00" & std_logic_vector(unsigned(genSignal_1_dd));  --test (debug)!
-        -- read ADC data and enable averaging
-        if mavg_enA_d = '1' then
-            dataAd <= signed(mavg_dataA);
-        else
-            dataAd <= signed(dataA);
-        end if;
-        if mavg_enB_d = '1' then
-            dataBd <= signed(mavg_dataB);
-        else
-            dataBd <= signed(dataB);
-        end if;
+		-- read ADC data and enable averaging
+		if mavg_enA_d = '1' then
+			dataAd <= signed(mavg_dataA);
+		else
+			dataAd <= signed(dataA);
+		end if;
+		if mavg_enB_d = '1' then
+			dataBd <= signed(mavg_dataB);
+		else
+			dataBd <= signed(dataB);
+		end if;
 
-        genSignal_1_d <= genSignal_1(11 downto 2);
-        genSignal_1_dd <= genSignal_1_d;
-        genSignal_2_d <= genSignal_2(11 downto 2);
-        genSignal_2_dd <= genSignal_2_d;
-        
+		genSignal_1_d <= genSignal_1(11 downto 2);
+		genSignal_1_dd <= genSignal_1_d;
+		genSignal_2_d <= genSignal_2(11 downto 2);
+		genSignal_2_dd <= genSignal_2_d;
+
 		------------------------------
 		--  DIGITAL CH. DIRECTION   --
 		------------------------------
 		-- select digital channels direction: IN or OUT (74AVCH16T245 datasheet)
 		dir_11_6 <= digital_direction(1); -- if '0' = OUT  FPGA=portB -->-- portA=Connector
 		dir_5_0 <= digital_direction(0);  -- if '1' = IN   FPGA=portB --<-- portA=Connector
-		
+
 		--LED_1=>ON if power=ON and at least one byte direction is OUT
 		LED_i(1) <= (sig_out_enable_d AND (digital_direction(1) NAND digital_direction(0)));
-		
+
 		case digital_direction(1) is
 			when '0' =>
 				dataD(11 downto 6) <= (NOT(digital_OutputWordMask_d(11 downto 6)) AND doutb_dig(11 downto 6))
@@ -1431,7 +1431,7 @@ begin
 			when others =>
 				null;
 		end case;
-		
+
 		case digital_direction(0) is
 			when '0' =>
 				dataD(5 downto 0) <= (NOT(digital_OutputWordMask_d(5 downto 0)) AND doutb_dig(5 downto 0))
@@ -1450,23 +1450,23 @@ begin
 		if digitalClkDivide_cnt >= digitalClkDivide then
 			digitalClkDivide_cnt <= to_unsigned(0,32);
 		else
-			digitalClkDivide_cnt <= digitalClkDivide_cnt + 1;			
+			digitalClkDivide_cnt <= digitalClkDivide_cnt + 1;
 		end if;
 		if digitalClkDivide_cnt = to_unsigned(0,32) then
-            if ( addrb_dig = std_logic_vector(to_unsigned(AWG_MAX_SAMPLES-1,15)) ) then
-                addrb_dig <= "000000000000000";
-            else
-                addrb_dig <= std_logic_vector(unsigned(addrb_dig) + 1);
-            end if;
-        end if;
+			if ( addrb_dig = std_logic_vector(to_unsigned(AWG_MAX_SAMPLES-1,15)) ) then
+				addrb_dig <= "000000000000000";
+			else
+				addrb_dig <= std_logic_vector(unsigned(addrb_dig) + 1);
+			end if;
+		end if;
 
 		--AWG1/AWG2 master ON/OFF signal
 		sig_out_enable_d <= sig_out_enable;
 		--external analog trigger
 		an_trig_dd <= an_trig_d;
 		an_trig_ddd <= an_trig_dd;
-		
-		-- ext. analog trigger_level 
+
+		-- ext. analog trigger_level
 		-- offset signal range for pwm input (0.9V common mode voltage)
 		-- 3,3 Volt / 2048 bit = 3.223e-3 Volt/bit
 		-- 0.9 VOlt / 3.223e-3 Volt/bit = 279 bit
@@ -1474,8 +1474,8 @@ begin
 			AnalogTrigTresh <= std_logic_vector(to_signed(0,10));
 		else
 			AnalogTrigTresh <= std_logic_vector(signed(trig_level)+to_signed(279,10));
-		end if;			
-		
+		end if;
+
 		if cfg_addrB = std_logic_vector(to_unsigned(CONFIG_DATA_SIZE-1,6)) then
 			cfg_addrB <= std_logic_vector(to_unsigned(1,6));
 		else
@@ -1483,7 +1483,7 @@ begin
 		end if;
 
 		cfg_addrB_d <= cfg_addrB;
-		--reading config data 
+		--reading config data
 		case to_integer(unsigned(cfg_addrB_d) + 1) is
 
 			when 4 =>
@@ -1502,7 +1502,7 @@ begin
 			when 8 =>
 				holdOff <= unsigned(cfg_do_B);
 			when 9 =>
-                framesize <= std_logic_vector(unsigned(cfg_do_B(26 downto 0))-1);
+				framesize <= std_logic_vector(unsigned(cfg_do_B(26 downto 0))-1);
 			when 10 =>
 				generator1On <= cfg_do_B(24);
 			when 13 =>
@@ -1515,27 +1515,27 @@ begin
 				digital_trig_patternA(1) <= cfg_do_B(11 downto 0);
 			when 18 =>
 				digital_trig_patternB(1) <= cfg_do_B(27 downto 16);
-				digital_trig_mask(1) <= cfg_do_B(11 downto 0);	
+				digital_trig_mask(1) <= cfg_do_B(11 downto 0);
 			when 19 =>
 				digital_trig_patternA(2) <= cfg_do_B(27 downto 16);
 				digital_trig_patternB(2) <= cfg_do_B(11 downto 0);
 			when 20 =>
 				digital_trig_mask(2) <= cfg_do_B(27 downto 16);
-				digital_trig_patternA(3) <= cfg_do_B(11 downto 0);						
+				digital_trig_patternA(3) <= cfg_do_B(11 downto 0);
 			when 21 =>
 				digital_trig_patternB(3) <= cfg_do_B(27 downto 16);
 				digital_trig_mask(3) <= cfg_do_B(11 downto 0);
-    		when 22 =>
+			when 22 =>
 				dt_delayMaxcnt(0) <= unsigned(cfg_do_B(31 downto 16));
-				dt_delayMaxcnt(1) <= unsigned(cfg_do_B(15 downto 0));	
+				dt_delayMaxcnt(1) <= unsigned(cfg_do_B(15 downto 0));
 			when 23 =>
-				dt_delayMaxcnt(2) <= unsigned(cfg_do_B(31 downto 16));	
-				dt_delayMaxcnt(3) <= unsigned(cfg_do_B(15 downto 0));	
+				dt_delayMaxcnt(2) <= unsigned(cfg_do_B(31 downto 16));
+				dt_delayMaxcnt(3) <= unsigned(cfg_do_B(15 downto 0));
 			when 24 =>
-				dt_stage_capture <= to_integer(unsigned(cfg_do_B(25 downto 24)));	
-                dtSerial <= cfg_do_B(20);
-                dtSerialCh <= to_integer(unsigned(cfg_do_B(19 downto 16)));
---				digital_WiperCode <= cfg_do_B (7 downto 0); --digitalVoltage 
+				dt_stage_capture <= to_integer(unsigned(cfg_do_B(25 downto 24)));
+				dtSerial <= cfg_do_B(20);
+				dtSerialCh <= to_integer(unsigned(cfg_do_B(19 downto 16)));
+--				digital_WiperCode <= cfg_do_B (7 downto 0); --digitalVoltage
 			when 25 =>
 				digital_Direction <= cfg_do_B (17 downto 16);   --digitalInputOutput
 				digital_OutputWord <= cfg_do_B (15 downto 0);
@@ -1557,51 +1557,51 @@ begin
 
 		--TEST DIGITAL--
 		--dataDd <= "00" & addra;
-		
+
 		----------------
 		--genSignal_d <= signed(dac_data)-to_signed(2048,12);   --signed(dac_data_rising);
 		clearflags_d <= clearflags;
 		holdOff_d <= holdOff;
-		
+
 		-- detect requestFrame rising edge (new frame request)
 		-- new frame can start saving
 		requestFrame_d <= requestFrame;
 		requestFrame_dd <= requestFrame_d;
-		if requestFrame_dd = '0' AND requestFrame_d = '1' then  
+		if requestFrame_dd = '0' AND requestFrame_d = '1' then
 			getNewFrame <= '1';		--> START SAVING new frame (ADC process is monitoring this flag)
 		end if;
-		
+
 		trigger_mode_d <= trigger_mode;
-        trigger_source_d <= trigger_source;
-        trigger_slope_d <= trigger_slope;
-        trig_level_d <= trig_level;
-        trig_hysteresis_d <= trig_hysteresis;
-		
+		trigger_source_d <= trigger_source;
+		trigger_slope_d <= trigger_slope;
+		trig_level_d <= trig_level;
+		trig_hysteresis_d <= trig_hysteresis;
+
 		trig_level_r_dd <= trig_level_d + trig_hysteresis_d;
 		trig_level_f_dd <= trig_level_d - trig_hysteresis_d;
-		
+
 	    DataWriteEn_d <= DataWriteEn;
-        PreTrigWriteEn_d <= PreTrigWriteEn;
-        
-        ScopeConfigChanged_d <= ScopeConfigChanged;
-        ScopeConfigChanged_dd <= ScopeConfigChanged_d;
-        	  
+		PreTrigWriteEn_d <= PreTrigWriteEn;
+
+		ScopeConfigChanged_d <= ScopeConfigChanged;
+		ScopeConfigChanged_dd <= ScopeConfigChanged_d;
+
 		--=======================================================--
 		--         Save ADC samples to buffer                    --
 		--=======================================================--
-	    		
+
 		if ( sampling_CE = '0' ) then -- clock enable for sample save state machine
-            
-            DataWriteEn <= '0';
-            PreTrigWriteEn <= '0';
-            
-        else
+
+			DataWriteEn <= '0';
+			PreTrigWriteEn <= '0';
+
+		else
 
 			-- select signal for trigger source
 			trig_signal_d <= trig_signal; -- monitor current and next value for trigger
-			
+
 			-- Channel 0
-			if ( trigger_source_d = "000" ) then					
+			if ( trigger_source_d = "000" ) then
 				trig_signal <= dataAd;		-- if rising
 			-- Channel 1
 			elsif ( trigger_source_d = "001" ) then
@@ -1612,11 +1612,11 @@ begin
 			elsif ( trigger_source_d = "011" ) then
 				trig_signal <= genSignal_2_dd;
 			end if;
-			
+
 			case GetSampleState(2 downto 0) is
-		
+
 			    when ADC_A =>		-- "IDLE STATE"
-			
+
 			    --===================================--
 			    -- Set timebase and auto trigger    --
 			    --===================================--
@@ -1624,7 +1624,7 @@ begin
 			    timebase_d <= timebase; -- select sampling frequency for next frame
 
 			    case to_integer(unsigned(timebase_d (4 downto 0))) is
-				
+
 					when 0 | 1 =>		-- 4 ns between samples
 						auto_trigger_maxcnt <= 400000; -- 1.6 ms auto trigger timeout
 					when 2 =>		-- 8 ns
@@ -1634,54 +1634,54 @@ begin
 					when 4 =>		-- 40 ns
 						auto_trigger_maxcnt <= 100000; -- 4 ms
 					when 5 =>		-- 80 ns
-						auto_trigger_maxcnt <= 100000; -- 8 ms					
+						auto_trigger_maxcnt <= 100000; -- 8 ms
 					when 6 =>		-- 200 ns
-						auto_trigger_maxcnt <= 50000; -- 10 ms					
+						auto_trigger_maxcnt <= 50000; -- 10 ms
 					when 7 =>		-- 400 ns
-						auto_trigger_maxcnt <= 25000; -- 10 ms				
+						auto_trigger_maxcnt <= 25000; -- 10 ms
 					when 8 =>		-- 800 ns
-						auto_trigger_maxcnt <= 25000;  -- 20 ms				
+						auto_trigger_maxcnt <= 25000;  -- 20 ms
 					when 9 =>		-- 2 us
-						auto_trigger_maxcnt <= 10000;  -- 20 ms				
+						auto_trigger_maxcnt <= 10000;  -- 20 ms
 					when 10 =>		-- 4 us
-						auto_trigger_maxcnt <= 5000;  -- 20 ms					
+						auto_trigger_maxcnt <= 5000;  -- 20 ms
 					when 11 =>		-- 8 us
-						auto_trigger_maxcnt <= 5000;  -- 40 ms					
+						auto_trigger_maxcnt <= 5000;  -- 40 ms
 					when 12 =>		-- 20 us
-						auto_trigger_maxcnt <= 5000;  -- 100 ms					
+						auto_trigger_maxcnt <= 5000;  -- 100 ms
 					when 13 =>		-- 40 us
-						auto_trigger_maxcnt <= 5000;  -- 200 ms					
+						auto_trigger_maxcnt <= 5000;  -- 200 ms
 					when 14 =>		-- 80 us
-						auto_trigger_maxcnt <= 5000;   -- 400 ms				
+						auto_trigger_maxcnt <= 5000;   -- 400 ms
 					when 15 =>		-- 200 us
-						auto_trigger_maxcnt <= 2000;   -- 400 ms					
+						auto_trigger_maxcnt <= 2000;   -- 400 ms
 					when 16 =>		-- 400 us
-						auto_trigger_maxcnt <= 1000;   -- 400 ms					
+						auto_trigger_maxcnt <= 1000;   -- 400 ms
 					when 17 =>		-- 800 us
 						auto_trigger_maxcnt <= 500;    -- 400 ms
 					when 18 =>		-- 2 ms
-						auto_trigger_maxcnt <= 200;    -- 400 ms				
+						auto_trigger_maxcnt <= 200;    -- 400 ms
 					when 19 =>		-- 4 ms
-						auto_trigger_maxcnt <= 100;    -- 400 ms					
+						auto_trigger_maxcnt <= 100;    -- 400 ms
 					when 20 =>		-- 8 ms
-						auto_trigger_maxcnt <= 100;    -- 800 ms				
+						auto_trigger_maxcnt <= 100;    -- 800 ms
 					when 21 =>		-- 20 ms
-						auto_trigger_maxcnt <= 50;     -- 1000 ms			
+						auto_trigger_maxcnt <= 50;     -- 1000 ms
 					when others =>
-						null;	
+						null;
 				end case;
-								
+
 
 				digital_OutputWord_d <= digital_OutputWord;
 				digital_OutputWordMask_d <= digital_OutputWordMask;
-				digital_direction_d <= digital_Direction;				
+				digital_direction_d <= digital_Direction;
 				ets_on_d <= ets_on;
 				mavg_enA_d <= mavg_enA;
 				mavg_enB_d <= mavg_enB;
-				
+
 				saved_sample_cnt <= 0;
 				saved_sample_cnt_d <= 0;
-				
+
 				--addra <= "00000000000000";
 				auto_trigger <= '0';
 				auto_trigger_d <= '0';
@@ -1690,32 +1690,32 @@ begin
 				roll <= '0';
 				triggered_led <= '0';
 				dt_enable <= '0';
-				
+
 				if ( getNewFrame = '1' AND clearflags_d = '0' and ram_rdy = '1' ) then
 					PreTrigSaving <= '1';
 				    PreTrigWriteEn <= '1';
 					framesize_d <= framesize;     -- save current frame size
 					pre_trigger_d <= pre_trigger; -- size of pre-trigger
 					adc_interleaving_d <= adc_interleaving;
-					GetSampleState <= ADC_B;   -- goto "PRE-TRIGGER"			
-					
+					GetSampleState <= ADC_B;   -- goto "PRE-TRIGGER"
+
 				else
 					GetSampleState <= ADC_A;
 					PreTrigSaving <= '0';
 					PreTrigWriteEn <= '0';
-					
+
 				end if;
 				DebugADCState <= 0;
-				
+
 			when ADC_B =>		-- "START SAVE SAMPLES TO FRAME BUFFER: CAPTURE PRE-TRIGGER"
-				
+
 				PreTrigSaving <= '1';
 				PreTrigWriteEn <= '1';
 				triggered <= '0';
 				getNewFrame <= '0';			--> reset getNewFrame flag
-									
+
 				--post_trigger <= unsigned(framesize_d) - pre_trigger_d + 1;
-				
+
 				if ( clearflags_d = '1') then
 					GetSampleState <= ADC_A;
 				-- if sample buffer is filled with pre-trigger data (note: max. pre-trigger_cnt = framesize)
@@ -1738,209 +1738,209 @@ begin
 					pre_trigger_cnt <= pre_trigger_cnt + 1;
 					GetSampleState <= ADC_B;
 				end if;
-				
-    			DebugADCState <= 1;
-				
+
+				DebugADCState <= 1;
+
 			when ADC_C =>		-- "WAIT FOR TRIGGER ARMED"
-				
+
 				PreTrigSaving <= '1';
 				PreTrigWriteEn <= '1';
-				triggered <= '0';				
+				triggered <= '0';
 				if auto_trigger_cnt = auto_trigger_maxcnt then
 				    auto_trigger <= '1';
 				else
 				    auto_trigger_cnt <= auto_trigger_cnt + 1;
 				end if;
-				
+
 				if ( clearflags_d = '1') then
 				    dt_enable <= '0';
 					GetSampleState <= ADC_A;
-					
-				-- define transition to POST-TRIGGER samples capture:		
+
+				-- define transition to POST-TRIGGER samples capture:
 				-- immediate trigger
 				elsif trigger_mode_d = "11" then
 				    GetSampleState <= ADC_E;
-				
+
 				-- Analog trigger (ETS = ON and 1 -> 0 transition of analog trigger)
 				elsif ets_on_d = '1' AND an_trig_ddd = '0' AND an_trig_dd = '1' then
-					lut_reg_out_tmp1 <= lut_reg_out(31 downto 16);					
+					lut_reg_out_tmp1 <= lut_reg_out(31 downto 16);
 					lut_reg_out_tmp0 <= lut_reg_out(15 downto 0);
 					case lut_reg_out(31 downto 0) is
-                        when "01111111111111111111111111111111" =>
-                            an_trig_delay <= std_logic_vector(to_unsigned(31,6));
-                        when "00111111111111111111111111111111" =>
-                            an_trig_delay <= std_logic_vector(to_unsigned(30,6));
-                        when "00011111111111111111111111111111" =>
-                            an_trig_delay <= std_logic_vector(to_unsigned(29,6));
-                        when "00001111111111111111111111111111" =>
-                            an_trig_delay <= std_logic_vector(to_unsigned(28,6));
-                        when "00000111111111111111111111111111" =>
-                            an_trig_delay <= std_logic_vector(to_unsigned(27,6));
-                        when "00000011111111111111111111111111" =>
-                            an_trig_delay <= std_logic_vector(to_unsigned(26,6));
-                        when "00000001111111111111111111111111" =>
-                            an_trig_delay <= std_logic_vector(to_unsigned(25,6));
-                        when "00000000111111111111111111111111" =>
-                            an_trig_delay <= std_logic_vector(to_unsigned(24,6));
-                        when "00000000011111111111111111111111" =>
-                            an_trig_delay <= std_logic_vector(to_unsigned(23,6));
-                        when "00000000001111111111111111111111" =>
-                            an_trig_delay <= std_logic_vector(to_unsigned(22,6));
-                        when "00000000000111111111111111111111" =>
-                            an_trig_delay <= std_logic_vector(to_unsigned(21,6));
-                        when "00000000000011111111111111111111" =>
-                            an_trig_delay <= std_logic_vector(to_unsigned(20,6));
-                        when "00000000000001111111111111111111" =>
-                            an_trig_delay <= std_logic_vector(to_unsigned(19,6));
-                        when "00000000000000111111111111111111" =>
-                            an_trig_delay <= std_logic_vector(to_unsigned(18,6));
-                        when "00000000000000011111111111111111" =>
-                            an_trig_delay <= std_logic_vector(to_unsigned(17,6));
-                        when "00000000000000001111111111111111" =>
-                            an_trig_delay <= std_logic_vector(to_unsigned(16,6));
-                        when "00000000000000000111111111111111" =>
-                            an_trig_delay <= std_logic_vector(to_unsigned(15,6));
-                        when "00000000000000000011111111111111" =>
-                            an_trig_delay <= std_logic_vector(to_unsigned(14,6));
-                        when "00000000000000000001111111111111" =>
-                            an_trig_delay <= std_logic_vector(to_unsigned(13,6));
-                        when "00000000000000000000111111111111" =>
-                            an_trig_delay <= std_logic_vector(to_unsigned(12,6));
-                        when "00000000000000000000011111111111" =>
-                            an_trig_delay <= std_logic_vector(to_unsigned(11,6));
-                        when "00000000000000000000001111111111" =>
-                            an_trig_delay <= std_logic_vector(to_unsigned(10,6));
-                        when "00000000000000000000000111111111" =>
-                            an_trig_delay <= std_logic_vector(to_unsigned(9,6));
-                        when "00000000000000000000000011111111" =>
-                            an_trig_delay <= std_logic_vector(to_unsigned(8,6));
-                        when "00000000000000000000000001111111" =>
-                            an_trig_delay <= std_logic_vector(to_unsigned(7,6));
-                        when "00000000000000000000000000111111" =>
-                            an_trig_delay <= std_logic_vector(to_unsigned(6,6));
-                        when "00000000000000000000000000011111" =>
-                            an_trig_delay <= std_logic_vector(to_unsigned(5,6));
-                        when "00000000000000000000000000001111" =>
-                            an_trig_delay <= std_logic_vector(to_unsigned(4,6));
-                        when "00000000000000000000000000000111" =>
-                            an_trig_delay <= std_logic_vector(to_unsigned(3,6));
-                        when "00000000000000000000000000000011" =>
-                            an_trig_delay <= std_logic_vector(to_unsigned(2,6));
-                        when "00000000000000000000000000000001" =>
-                            an_trig_delay <= std_logic_vector(to_unsigned(1,6));
-                        when "00000000000000000000000000000000" =>
-                            an_trig_delay <= std_logic_vector(to_unsigned(0,6));
-                        when others => Null;
+						when "01111111111111111111111111111111" =>
+							an_trig_delay <= std_logic_vector(to_unsigned(31,6));
+						when "00111111111111111111111111111111" =>
+							an_trig_delay <= std_logic_vector(to_unsigned(30,6));
+						when "00011111111111111111111111111111" =>
+							an_trig_delay <= std_logic_vector(to_unsigned(29,6));
+						when "00001111111111111111111111111111" =>
+							an_trig_delay <= std_logic_vector(to_unsigned(28,6));
+						when "00000111111111111111111111111111" =>
+							an_trig_delay <= std_logic_vector(to_unsigned(27,6));
+						when "00000011111111111111111111111111" =>
+							an_trig_delay <= std_logic_vector(to_unsigned(26,6));
+						when "00000001111111111111111111111111" =>
+							an_trig_delay <= std_logic_vector(to_unsigned(25,6));
+						when "00000000111111111111111111111111" =>
+							an_trig_delay <= std_logic_vector(to_unsigned(24,6));
+						when "00000000011111111111111111111111" =>
+							an_trig_delay <= std_logic_vector(to_unsigned(23,6));
+						when "00000000001111111111111111111111" =>
+							an_trig_delay <= std_logic_vector(to_unsigned(22,6));
+						when "00000000000111111111111111111111" =>
+							an_trig_delay <= std_logic_vector(to_unsigned(21,6));
+						when "00000000000011111111111111111111" =>
+							an_trig_delay <= std_logic_vector(to_unsigned(20,6));
+						when "00000000000001111111111111111111" =>
+							an_trig_delay <= std_logic_vector(to_unsigned(19,6));
+						when "00000000000000111111111111111111" =>
+							an_trig_delay <= std_logic_vector(to_unsigned(18,6));
+						when "00000000000000011111111111111111" =>
+							an_trig_delay <= std_logic_vector(to_unsigned(17,6));
+						when "00000000000000001111111111111111" =>
+							an_trig_delay <= std_logic_vector(to_unsigned(16,6));
+						when "00000000000000000111111111111111" =>
+							an_trig_delay <= std_logic_vector(to_unsigned(15,6));
+						when "00000000000000000011111111111111" =>
+							an_trig_delay <= std_logic_vector(to_unsigned(14,6));
+						when "00000000000000000001111111111111" =>
+							an_trig_delay <= std_logic_vector(to_unsigned(13,6));
+						when "00000000000000000000111111111111" =>
+							an_trig_delay <= std_logic_vector(to_unsigned(12,6));
+						when "00000000000000000000011111111111" =>
+							an_trig_delay <= std_logic_vector(to_unsigned(11,6));
+						when "00000000000000000000001111111111" =>
+							an_trig_delay <= std_logic_vector(to_unsigned(10,6));
+						when "00000000000000000000000111111111" =>
+							an_trig_delay <= std_logic_vector(to_unsigned(9,6));
+						when "00000000000000000000000011111111" =>
+							an_trig_delay <= std_logic_vector(to_unsigned(8,6));
+						when "00000000000000000000000001111111" =>
+							an_trig_delay <= std_logic_vector(to_unsigned(7,6));
+						when "00000000000000000000000000111111" =>
+							an_trig_delay <= std_logic_vector(to_unsigned(6,6));
+						when "00000000000000000000000000011111" =>
+							an_trig_delay <= std_logic_vector(to_unsigned(5,6));
+						when "00000000000000000000000000001111" =>
+							an_trig_delay <= std_logic_vector(to_unsigned(4,6));
+						when "00000000000000000000000000000111" =>
+							an_trig_delay <= std_logic_vector(to_unsigned(3,6));
+						when "00000000000000000000000000000011" =>
+							an_trig_delay <= std_logic_vector(to_unsigned(2,6));
+						when "00000000000000000000000000000001" =>
+							an_trig_delay <= std_logic_vector(to_unsigned(1,6));
+						when "00000000000000000000000000000000" =>
+							an_trig_delay <= std_logic_vector(to_unsigned(0,6));
+						when others => Null;
 					end case;
 					triggered_led <= '1'; -- signal IS TRIGGERED indicator
 					GetSampleState <= ADC_E;
-						
+
 				-- Mode: Normal OR Auto OR Single (Not Immediate) AND Source: not Digital
-				-- Slope "rising" 
+				-- Slope "rising"
 				elsif ets_on_d = '0' AND trigger_source_d /= "100" AND trigger_mode_d /= "11"
-                    AND (trigger_slope_d = "00" AND trig_signal < trig_level_d AND trig_signal_d >= trig_level_d) then
-                        triggered_led <= '0'; -- signal IS NOT TRIGGERED indicator
-                        GetSampleState <= ADC_D;
-				-- Slope "falling" 
-                elsif ets_on_d = '0' AND trigger_source_d /= "100" AND trigger_mode_d /= "11"
+					AND (trigger_slope_d = "00" AND trig_signal < trig_level_d AND trig_signal_d >= trig_level_d) then
+						triggered_led <= '0'; -- signal IS NOT TRIGGERED indicator
+						GetSampleState <= ADC_D;
+				-- Slope "falling"
+				elsif ets_on_d = '0' AND trigger_source_d /= "100" AND trigger_mode_d /= "11"
 					AND (trigger_slope_d = "01" AND trig_signal >= trig_level_d AND trig_signal_d < trig_level_d) then
-                        triggered_led <= '0'; -- signal IS NOT TRIGGERED indicator
-                        GetSampleState <= ADC_D;
-				-- Slope "both"	   
-                elsif ets_on_d = '0' AND trigger_source_d /= "100" AND trigger_mode_d /= "11"
+						triggered_led <= '0'; -- signal IS NOT TRIGGERED indicator
+						GetSampleState <= ADC_D;
+				-- Slope "both"
+				elsif ets_on_d = '0' AND trigger_source_d /= "100" AND trigger_mode_d /= "11"
 					AND (trigger_slope_d = "10" AND ((trig_signal <  trig_level_d AND trig_signal_d >= trig_level_d)
 					                            OR   (trig_signal >= trig_level_d AND trig_signal_d < trig_level_d ))) then
-                        triggered_led <= '0'; -- signal IS NOT TRIGGERED indicator
-                        GetSampleState <= ADC_D;
-				
+						triggered_led <= '0'; -- signal IS NOT TRIGGERED indicator
+						GetSampleState <= ADC_D;
+
 				-- IF AUTO:
 				elsif	trigger_mode_d = "00" AND auto_trigger = '1' then
 					triggered_led <= '0'; -- signal IS NOT TRIGGERED indicator
 					GetSampleState <= ADC_E;
-				
+
 			   -- External Digital Inputs trigger
 				elsif (ets_on_d = '0' AND trigger_source_d = "100") then
-                    --arm digital trigger
-                    GetSampleState <= ADC_D;
-                    dt_enable <= '1';
-                    
+					--arm digital trigger
+					GetSampleState <= ADC_D;
+					dt_enable <= '1';
+
 				else
 					GetSampleState <= ADC_C;
-					
+
 				end if;
 				DebugADCState <= 2;
 
-						
+
 			when ADC_D =>		-- "CONTINUE SAVE SAMPLES TO FRAME BUFFER: WAIT FOR TRIGGER FIRE"
 
 				PreTrigSaving <= '1';
 				PreTrigWriteEn <= '1';
 				triggered <= '0';
-				
+
 				if auto_trigger_cnt = auto_trigger_maxcnt then
-                    auto_trigger_d <= '1';
-                else
-                    auto_trigger_cnt <= auto_trigger_cnt + 1;
-                end if;
+					auto_trigger_d <= '1';
+				else
+					auto_trigger_cnt <= auto_trigger_cnt + 1;
+				end if;
 
 				if ( clearflags_d = '1' ) then
 					GetSampleState <= ADC_A;
-					
-                -- define transition to POST-TRIGGER samples capture
-                
+
+				-- define transition to POST-TRIGGER samples capture
+
 				-- immediate trigger
-                elsif trigger_mode_d = "11" then
-                    GetSampleState <= ADC_E;
-				
-				-- AUTO		
+				elsif trigger_mode_d = "11" then
+					GetSampleState <= ADC_E;
+
+				-- AUTO
 				elsif	( trigger_mode_d = "00" AND auto_trigger_d = '1') then
 					triggered_led <= '0';
 					GetSampleState <= ADC_E;
 
 				-- Mode: Normal OR Auto OR Single (Not Immediate) AND Source: not Digital
-				-- Slope "rising"  
+				-- Slope "rising"
 				elsif  trigger_source_d /= "100" AND trigger_mode_d /= "11" AND trigger_slope_d = "00"
 					AND trig_signal_d >= trig_level_r_dd then
-                        triggered_led <= '1';
-                        GetSampleState <= ADC_E;
-                --Slope "falling"
+						triggered_led <= '1';
+						GetSampleState <= ADC_E;
+				--Slope "falling"
 				elsif  trigger_source_d /= "100" AND trigger_mode_d /= "11" AND trigger_slope_d = "01"
 					AND trig_signal_d < trig_level_f_dd then
-                        triggered_led <= '1';
-                        GetSampleState <= ADC_E;
-                --Slope "both"
+						triggered_led <= '1';
+						GetSampleState <= ADC_E;
+				--Slope "both"
 				elsif  trigger_source_d /= "100" AND trigger_mode_d /= "11" AND trigger_slope_d = "10"
 --                    AND ( trig_signal_d >= (trig_level_d + trig_hysteresis_d)
 --                      OR  trig_signal_d <  (trig_level_d - trig_hysteresis_d) ) then
 					AND ( abs(trig_signal_d) >= trig_level_r_dd ) then
-                        triggered_led <= '1';
-                        GetSampleState <= ADC_E;
+						triggered_led <= '1';
+						GetSampleState <= ADC_E;
 
 			   -- External Digital Inputs trigger
 				elsif (ets_on_d = '0' AND trigger_source_d = "100") then
-                    if dt_triggered = '1' then
-                        GetSampleState <= ADC_E;
-                    else
-                        GetSampleState <= ADC_D;
-                    end if;
-                    
-    			else
+					if dt_triggered = '1' then
+						GetSampleState <= ADC_E;
+					else
+						GetSampleState <= ADC_D;
+					end if;
+
+				else
 
 					GetSampleState <= ADC_D;
-					
+
 				end if;
 				DebugADCState <= 3;
-				
+
 			when ADC_E =>		-- "CONTINUE AND END SAVE SAMPLES TO FRAME BUFFER: POST-TRIGGER"
-			
+
 				-- make sure that triggered rising edge and frame_start_pointer are properly captured at sending side
 --				if cnt_rst_triggered = 0 then
 --					cnt_rst_triggered <= cnt_rst_triggered + 1;
 --					t_start <= '1'; --start holdoff timer
 --					triggered <= '1';
-					-- calculate frame start address ( TODO: pre-trigger ) 
+					-- calculate frame start address ( TODO: pre-trigger )
 --					if ( pre_trigger_d = 0 ) then
---						frame_start_pointer <= std_logic_vector(unsigned(addra)); 
+--						frame_start_pointer <= std_logic_vector(unsigned(addra));
 --					elsif ( pre_trigger_d > 0 ) AND ( pre_trigger_d > unsigned(addra)) then
 --						frame_start_pointer <= std_logic_vector(post_trigger + unsigned(addra));
 --					elsif ( pre_trigger_d > 0 ) AND ( pre_trigger_d <= unsigned(addra) ) then
@@ -1953,10 +1953,10 @@ begin
 --					cnt_rst_triggered <= cnt_rst_triggered + 1;
 --				end if;
 
-                PreTrigSaving <= '0';
+				PreTrigSaving <= '0';
 			    PreTrigWriteEn <= '0';
 			    dt_enable <= '0';
-			    
+
 				if ( clearflags_d = '1' ) then
 					t_start <= '0'; --reset holdoff timer start bit
 					DataWriteEn <= '0';    --enable signal for DDR write
@@ -1964,7 +1964,7 @@ begin
 					cnt_rst_triggered <= 0;
 					GetSampleState <= ADC_A;
 				-- if frame is full
-				elsif ( saved_sample_cnt_d = unsigned(framesize_d) ) then	
+				elsif ( saved_sample_cnt_d = unsigned(framesize_d) ) then
 					-- start holdoff timer & reset trigger indicator
 					t_start <= '1';
 					triggered <= '0';
@@ -1974,7 +1974,7 @@ begin
 					GetSampleState <= ADC_F;
 				else
 				    t_start <= '0';
-                    -- DDR test data
+					-- DDR test data
 				    DataWriteEn <= '1';
 				    triggered <= '1';
 					GetSampleState <= ADC_E;
@@ -1982,12 +1982,12 @@ begin
 				saved_sample_cnt <= saved_sample_cnt + 1;
 				saved_sample_cnt_d <= saved_sample_cnt;
 				DebugADCState <= 4;
-				
+
 			when ADC_F =>
-				
-                PreTrigSaving <= '0';
+
+				PreTrigSaving <= '0';
 				PreTrigWriteEn <= '0';
-				t_start <= '0'; --reset holdoff timer start bit	
+				t_start <= '0'; --reset holdoff timer start bit
 				if ( clearflags_d = '1' OR o_end = '1') then
 					GetSampleState <= ADC_A;
 				else
@@ -1995,17 +1995,17 @@ begin
 					GetSampleState <= ADC_F;
 				end if;
 				DebugADCState <= 5;
-					
+
 			when others =>
 				GetSampleState <= ADC_A;
 				DebugADCState <= 6;
 
 			end case;
-		      
+
 		end if; --//sampling_ce
-		
+
 	end if; --//rising_edge
-	
+
 end process;
 
 
@@ -2013,58 +2013,58 @@ end process;
 FX3_interface: process(ifclk)
 
 begin
-	
+
 	if (rising_edge(ifclk)) then
-		     
-        device_temp_d <= device_temp;
-        device_temp_dd <= device_temp_d;
-        
-        getnewframe_d <= getnewframe;
-        getnewframe_dd <= getnewframe_d;
-        if getnewframe_dd = '0' and getnewframe_d = '1' then
-            newFrameRequestRevcd <= '1';
-        end if;
-        
-        init_calib_complete_d <= init_calib_complete;
-        if init_calib_complete_d = '0' and init_calib_complete = '1' then
-            calib_done <= '1';
-        elsif init_calib_complete_d = '1' and init_calib_complete = '0' then
-            calib_done <= '0';
-        end if; 
-        
-        -- procedure to reset PLL in case it looses lock
-        if calib_done = '1' then
-            if pll_locked = '0' then
-                if assert_pll_counter = 0 then
-                    pll_reset <= '1';
-                else
-                    pll_reset <= '0';
-                end if;
-                assert_pll_counter <= assert_pll_counter + 1;
-            else
-                pll_reset <= '0';
-                assert_pll_counter <= 0;
-            end if;
-        else
-            pll_reset <= '0';
-            assert_pll_counter <= 0;
-        end if;
-        
-        flaga_d <= flaga;
-        flagb_d <= flagb;
-        flagb_dd <= flagb_d;
-        flagb_ddd <= flagb_dd;
-        flagd_d <= flagd;
-        flagd_dd <= flagd_d;
-        -- monitor flagd: if flagd is rising then we can begin write data to FX3
-        if (flagd_dd = '0' and flagd_d = '1') then
-            slwr_assert <= '1';
-        end if;
-        
-        -- here we create EP6 ready flag using flagd
-        -- flagd         (EP6 partially full flag, watermark level: 9)
-        -- flagd_d       (EP6 partially full flag, delayed)
-        -- flag_ep6_full (EP6 full flag, asserted low)
+
+		device_temp_d <= device_temp;
+		device_temp_dd <= device_temp_d;
+
+		getnewframe_d <= getnewframe;
+		getnewframe_dd <= getnewframe_d;
+		if getnewframe_dd = '0' and getnewframe_d = '1' then
+			newFrameRequestRevcd <= '1';
+		end if;
+
+		init_calib_complete_d <= init_calib_complete;
+		if init_calib_complete_d = '0' and init_calib_complete = '1' then
+			calib_done <= '1';
+		elsif init_calib_complete_d = '1' and init_calib_complete = '0' then
+			calib_done <= '0';
+		end if;
+
+		-- procedure to reset PLL in case it looses lock
+		if calib_done = '1' then
+			if pll_locked = '0' then
+				if assert_pll_counter = 0 then
+					pll_reset <= '1';
+				else
+					pll_reset <= '0';
+				end if;
+				assert_pll_counter <= assert_pll_counter + 1;
+			else
+				pll_reset <= '0';
+				assert_pll_counter <= 0;
+			end if;
+		else
+			pll_reset <= '0';
+			assert_pll_counter <= 0;
+		end if;
+
+		flaga_d <= flaga;
+		flagb_d <= flagb;
+		flagb_dd <= flagb_d;
+		flagb_ddd <= flagb_dd;
+		flagd_d <= flagd;
+		flagd_dd <= flagd_d;
+		-- monitor flagd: if flagd is rising then we can begin write data to FX3
+		if (flagd_dd = '0' and flagd_d = '1') then
+			slwr_assert <= '1';
+		end if;
+
+		-- here we create EP6 ready flag using flagd
+		-- flagd         (EP6 partially full flag, watermark level: 9)
+		-- flagd_d       (EP6 partially full flag, delayed)
+		-- flag_ep6_full (EP6 full flag, asserted low)
 --        if flagd_d = '1' then
 --            if cnt_after_flagd = 7 then
 --                flag_ep6_ready <= '1'; -- EP6 fifo IS empty
@@ -2076,31 +2076,31 @@ begin
 --            flag_ep6_ready <= '1';     -- EP6 fifo is _not empty_
 --            cnt_after_flagd <= 0;
 --        end if;
-        
-		DebugADCState_d <= DebugADCState;		
-		
+
+		DebugADCState_d <= DebugADCState;
+
 		lut_reg_out_tmp1_d <= lut_reg_out_tmp1;
 		lut_reg_out_tmp0_d <= lut_reg_out_tmp0;
-		
+
 		timebase_dd <= timebase_d;
 		timebase_ddd <= timebase_dd;
-		
+
 		an_trig_delay_d <= an_trig_delay;
 		an_trig_delay_dd <= unsigned(an_trig_delay_d);
-		
+
 		if an_trig_delay_dd >= an_trig_delay_max then
-            an_trig_delay_max <= an_trig_delay_dd;
-        elsif an_trig_delay_dd /= 0 and (an_trig_delay_dd <= an_trig_delay_min) then
-            an_trig_delay_min <= an_trig_delay_dd;
-        end if;
-		
+			an_trig_delay_max <= an_trig_delay_dd;
+		elsif an_trig_delay_dd /= 0 and (an_trig_delay_dd <= an_trig_delay_min) then
+			an_trig_delay_min <= an_trig_delay_dd;
+		end if;
+
 --      digital_Direction_d <= digital_Direction;
 --		digital_Direction_dd <= digital_Direction_d;
-		
+
 		--========================================--
 		-- Generate frame save/send flags         --
 		--========================================--
-		
+
 		-- monitor triggered rising flag (so we can start sending samples to PC)
 		-- give some delay (_dddd), so that frame_start_pointer_dd is properly read
 		triggered_d <= triggered;
@@ -2111,7 +2111,7 @@ begin
 		if ( triggered_dddd = '0' AND triggered_ddd = '1' ) then
 		   frame_ready_to_send <= '1';
 		end if;
-		
+
 		-- READ ASYNC SIGNALS
 		frame_start_pointer_d <= frame_start_pointer;
 		frame_start_pointer_dd <= frame_start_pointer_d;
@@ -2123,86 +2123,86 @@ begin
 --		if saving_progress_d = saving_progress_dd then
 --			saving_progress_ddd <= saving_progress_dd;
 --		end if;
-			
+
 		triggered_led_d <= triggered_led; -- indicator that signal is triggered
 		roll_d <= roll;
-		
+
 		--===========================================================
 		-- Transfer samples from buffer to FX3
 		--===========================================================
-		
+
 		case MasterState(3 downto 0) is
-     
-		when A =>           			-- "IDLE STATE"                
-			faddr_i <= "00";        
+
+		when A =>           			-- "IDLE STATE"
+			faddr_i <= "00";
 			slrd_i  <= '1';
 			slwr_i  <= '1';
-            -- wait for IDELAYCTRL ready
-            -- IDELAYCTRL start-up Time = 3.67us
-            -- from Artix_7_Data_Sheet, Table  25: Input/Output Delay Switching Characteristics
+			-- wait for IDELAYCTRL ready
+			-- IDELAYCTRL start-up Time = 3.67us
+			-- from Artix_7_Data_Sheet, Table  25: Input/Output Delay Switching Characteristics
 			-- check flaga for rising edge
-            if ( flaga_d = '1' ) then
-                if Timer_cnt = 50000 then
-                    ConfigureVdac <= '0';   -- de-assert ADC & DAC SPI write
-                    ConfigureADC <= '0';
-                    sig_out_enable <= '1';  -- enable signal for Signal Generator
-                    MasterState <= B;	    -- goto Dispatcher
-                    Timer_cnt <= 0;
-                elsif Timer_cnt = 40000 then
-                    dac_cfg_reg <= "0110" & "000000000000"; -- enable +/-Va supply (UPO bit on MAX5501 DAC goes HIGH)
-                    --dac_cfg_reg <= "0010" & "000000000000"; -- DISABLE +/-Va supply (for debug only)
-                    ConfigureVdac <= '1';
-                    adc_spi_data <= X"00C0" & X"00"; -- configure ADC to DISABLE TEST pattern
-                    ConfigureADC <= '1';
-                    MasterState <= A;
-                    Timer_cnt <= Timer_cnt + 1;
-                elsif Timer_cnt = 30000 or Timer_cnt = 30001 then
-                    read_calib_start <= '1';    -- start IDELAY calibration for ADC interface
-                    read_calib_source <= '1';   -- select to calibrate CH1
-                    MasterState <= A;
-                    Timer_cnt <= Timer_cnt + 1;
-                elsif Timer_cnt = 20000 or Timer_cnt = 20001 then
-                    read_calib_start <= '1';    -- start IDELAY calibration for ADC interface
-                    read_calib_source <= '0';   -- select to calibrate CH1
-                    MasterState <= A;
-                    Timer_cnt <= Timer_cnt + 1;
-                elsif Timer_cnt = 2000 then
-                    adc_spi_data <= X"00C0" & X"44"; -- configure ADC to send TEST pattern (CHECKERBOARD)
-                    ConfigureADC <= '1';
-                    -- set POT:1 to tap value 152 (29763 Ohms)- the tap value should match digital[voltageCoeficient] 
-                    dpot_spi_WiperCode <= "00010000" & X"98";
-                    dpot_spi_write_trig <= '1';
-                    ConfigureVdac <= '0';
-                    MasterState <= A;
-                    Timer_cnt <= Timer_cnt + 1;
-                else
-                    read_calib_start <= '0';
-                    ConfigureADC <= '0';        -- de-assert ADC write trigger
-                    ConfigureVdac <= '0';       -- de-assert control DAC write trigger
-                    dpot_spi_write_trig <= '0'; -- de-assert digital POT write trigger
-                    sig_out_enable <= '0';
-                    MasterState <= A;
-                    Timer_cnt <= Timer_cnt + 1;
-                end if;
-            -- check flagb for rising edge
-            elsif ( flagb_d = '1' ) then
-                ConfigureADC <= '0';
-                ConfigureVdac <= '0';
-                read_calib_start <= '0';
-                sig_out_enable <= '0';
-                MasterState <= B;
-            else
-                Timer_cnt <= 0;
-                read_calib_start <= '0';
-                ConfigureVdac <= '0';
-                ConfigureADC <= '0';
-                sig_out_enable <= '0';
-                MasterState <= A;
-            end if;
+			if ( flaga_d = '1' ) then
+				if Timer_cnt = 50000 then
+					ConfigureVdac <= '0';   -- de-assert ADC & DAC SPI write
+					ConfigureADC <= '0';
+					sig_out_enable <= '1';  -- enable signal for Signal Generator
+					MasterState <= B;	    -- goto Dispatcher
+					Timer_cnt <= 0;
+				elsif Timer_cnt = 40000 then
+					dac_cfg_reg <= "0110" & "000000000000"; -- enable +/-Va supply (UPO bit on MAX5501 DAC goes HIGH)
+					--dac_cfg_reg <= "0010" & "000000000000"; -- DISABLE +/-Va supply (for debug only)
+					ConfigureVdac <= '1';
+					adc_spi_data <= X"00C0" & X"00"; -- configure ADC to DISABLE TEST pattern
+					ConfigureADC <= '1';
+					MasterState <= A;
+					Timer_cnt <= Timer_cnt + 1;
+				elsif Timer_cnt = 30000 or Timer_cnt = 30001 then
+					read_calib_start <= '1';    -- start IDELAY calibration for ADC interface
+					read_calib_source <= '1';   -- select to calibrate CH1
+					MasterState <= A;
+					Timer_cnt <= Timer_cnt + 1;
+				elsif Timer_cnt = 20000 or Timer_cnt = 20001 then
+					read_calib_start <= '1';    -- start IDELAY calibration for ADC interface
+					read_calib_source <= '0';   -- select to calibrate CH1
+					MasterState <= A;
+					Timer_cnt <= Timer_cnt + 1;
+				elsif Timer_cnt = 2000 then
+					adc_spi_data <= X"00C0" & X"44"; -- configure ADC to send TEST pattern (CHECKERBOARD)
+					ConfigureADC <= '1';
+					-- set POT:1 to tap value 152 (29763 Ohms)- the tap value should match digital[voltageCoeficient]
+					dpot_spi_WiperCode <= "00010000" & X"98";
+					dpot_spi_write_trig <= '1';
+					ConfigureVdac <= '0';
+					MasterState <= A;
+					Timer_cnt <= Timer_cnt + 1;
+				else
+					read_calib_start <= '0';
+					ConfigureADC <= '0';        -- de-assert ADC write trigger
+					ConfigureVdac <= '0';       -- de-assert control DAC write trigger
+					dpot_spi_write_trig <= '0'; -- de-assert digital POT write trigger
+					sig_out_enable <= '0';
+					MasterState <= A;
+					Timer_cnt <= Timer_cnt + 1;
+				end if;
+			-- check flagb for rising edge
+			elsif ( flagb_d = '1' ) then
+				ConfigureADC <= '0';
+				ConfigureVdac <= '0';
+				read_calib_start <= '0';
+				sig_out_enable <= '0';
+				MasterState <= B;
+			else
+				Timer_cnt <= 0;
+				read_calib_start <= '0';
+				ConfigureVdac <= '0';
+				ConfigureADC <= '0';
+				sig_out_enable <= '0';
+				MasterState <= A;
+			end if;
 			fdata <= "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"; -- place data bus in HI-Z state
 			clearflags <= '1'; -- send reset to ADC sample saving process
 			DebugMState <= 0;
-			
+
 		when B =>						-- "READ from FIFO state" / dispatcher
 			slwr_i <= '1';
 			slrd_i <= '1';
@@ -2215,7 +2215,7 @@ begin
 					-- initialize Config RAM address pointer
 					cfg_addrA <= std_logic_vector(to_unsigned(0,6));
 					MasterState <= C;  -- goto "GET SCOPE CONFIG"
-				else -- else: awg custom wave data is sent from host	
+				else -- else: awg custom wave data is sent from host
 					faddr_i <= "10";	-- select EP4
 					MasterState <= H; -- read AWG custom data
 				end if;
@@ -2224,9 +2224,9 @@ begin
 				ReturnToStreamingState <= '0'; -- re-set return state flag
 				Masterstate <= G; -- return to frame streaming
 			-- if new config was received during frame request, then return back
-            elsif ReturnToFrameRequest = '1' then
-                ReturnToFrameRequest <= '0'; -- re-set return state flag
-                Masterstate <= F; -- return to frame streaming
+			elsif ReturnToFrameRequest = '1' then
+				ReturnToFrameRequest <= '0'; -- re-set return state flag
+				Masterstate <= F; -- return to frame streaming
 			--if scope settings have changed
 			elsif DAC_pogramming_start = '1' then
 				-- update DAC config registers
@@ -2253,21 +2253,21 @@ begin
 					-- reset scopeConfigChanged flag
 					scopeConfigChanged <= '0';
 					-- stop&reset frame saving process
-					--clearflags <= '1'; --debug! --  due to problems with reset 
+					--clearflags <= '1'; --debug! --  due to problems with reset
 					--frame_ready_to_send <= '0'; --??? (100% pre-trigger)
 				end if;
 --				requestFrame <= '1';
 			   Masterstate <= F; -- else, go to "GET NEW ADC FRAME FROM SAMPLE BUFFER"
 			end if;
 			DebugMState <= 1;
-		  
+
 		when C =>						-- "GET SCOPE CONFIG"
 			faddr_i <= "11"; -- selected FIFO endpoint is EP2 (config)
 			slwr_i  <= '1';
 			-- verify if any changes were made to configuration
-            -- when writing to RAM, compare new and old config word
-            cfg_data_in_d <= cfg_data_in;
-            cfg_we_d <= cfg_we;
+			-- when writing to RAM, compare new and old config word
+			cfg_data_in_d <= cfg_data_in;
+			cfg_we_d <= cfg_we;
 			case to_integer(unsigned(cfg_addrA_d)+1) is
 				-- don't look for changes in generator config (word 10 to 15)
 				when 1 to 9 | 16 to 20 =>
@@ -2281,31 +2281,31 @@ begin
 
 			if faddr_rdy = '0' then
 			    slrd_i <= '0';
-                cfg_data_in <= fdata;
-                cfg_addrA_d <= cfg_addrA;
+				cfg_data_in <= fdata;
+				cfg_addrA_d <= cfg_addrA;
 			    -- FX3 has 3 cycle latency from FADDR to data
-                -- and 2 cycle latency from SLRD to data
-                if faddr_rdy_cnt_i = 3 then
-                    faddr_rdy <= '1';
-                    faddr_rdy_cnt_i <= 0;
-                    cfg_we <= '1';
-                else
-                    cfg_we <= '0';
-                    faddr_rdy <= '0';
-                    faddr_rdy_cnt_i <= faddr_rdy_cnt_i + 1;
-                end if;
-                Masterstate <= C;
-			-- if FX3 is ready for reading and EP2 is not empty 
+				-- and 2 cycle latency from SLRD to data
+				if faddr_rdy_cnt_i = 3 then
+					faddr_rdy <= '1';
+					faddr_rdy_cnt_i <= 0;
+					cfg_we <= '1';
+				else
+					cfg_we <= '0';
+					faddr_rdy <= '0';
+					faddr_rdy_cnt_i <= faddr_rdy_cnt_i + 1;
+				end if;
+				Masterstate <= C;
+			-- if FX3 is ready for reading and EP2 is not empty
 			elsif ( flaga_d = '1' and cfg_we = '1') then
 			    -- slrd has 2 cycle latency
 		        if cfg_data_cnt < CONFIG_DATA_SIZE - 4 then
-                    slrd_i  <= '0';
-                else
-                    slrd_i  <= '1';
-                end if;
+					slrd_i  <= '0';
+				else
+					slrd_i  <= '1';
+				end if;
 			    -- read oscilloscope configuration and save to RAM
-                cfg_data_in <= fdata;
-                -- increment RAM address pointer
+				cfg_data_in <= fdata;
+				-- increment RAM address pointer
 				if cfg_data_cnt = CONFIG_DATA_SIZE - 1 then
 				    cfg_we <= '0';
 				    cfg_data_cnt <= 0;
@@ -2315,11 +2315,11 @@ begin
 				    cfg_data_cnt <= cfg_data_cnt + 1;
 				    cfg_addrA <= std_logic_vector(unsigned(cfg_addrA) + 1);
 				end if;
-				cfg_addrA_d <= cfg_addrA;          
+				cfg_addrA_d <= cfg_addrA;
 				-- stay in this state util EP2 is not empty
 				Masterstate <= C;
 			else
-			    fdata <= "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"; -- place data bus in HI-Z state       
+			    fdata <= "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"; -- place data bus in HI-Z state
 				slrd_i  <= '1';
 				cfg_we <= '0';
 				if to_integer(unsigned(cfg_addrA)) = CONFIG_DATA_SIZE - 1 then
@@ -2329,7 +2329,7 @@ begin
 					cfg_data_cnt <= 0;
 					faddr_rdy_cnt_i <= 0;
 					faddr_rdy <= '0';
-                    dpot_spi_write_trig <= '1';
+					dpot_spi_write_trig <= '1';
 					Masterstate <= B;
 				else
 				    cfg_addrA_d <= cfg_addrA;
@@ -2338,9 +2338,9 @@ begin
 					dpot_spi_write_trig <= '0';
 					Masterstate <= C;
 				end if;
- 				
-    			--copy scope config to memory
-				case to_integer(unsigned(cfg_addrA_d) + 1) is 
+
+				--copy scope config to memory
+				case to_integer(unsigned(cfg_addrA_d) + 1) is
 					when 1 =>
 						adc_cfg_reg <= cfg_do_A(31 downto 16);
 						adc_cfg_reg_d <= adc_cfg_reg;
@@ -2348,29 +2348,29 @@ begin
 						adc_cfg_data_d <= adc_cfg_data;
 					when 2 =>
 						VgainA <= cfg_do_A(27 downto 16);
-						--VgainA_d <= VgainA; 
+						--VgainA_d <= VgainA;
 						VgainB <= cfg_do_A(11 downto 0);
-                        --VgainB_d <= VgainB;
+						--VgainB_d <= VgainB;
 					when 3 =>
 						OffsetA <= cfg_do_A(27 downto 16);
-                        OffsetA_d <= OffsetA;
-                        OffsetA_2d <= OffsetA_d;
-                        OffsetA_3d <= OffsetA_2d;
-                        OffsetA_4d <= OffsetA_3d;
-                        OffsetA_5d <= OffsetA_4d;
-                        OffsetA_6d <= OffsetA_5d;
-                        OffsetA_7d <= OffsetA_6d;
+						OffsetA_d <= OffsetA;
+						OffsetA_2d <= OffsetA_d;
+						OffsetA_3d <= OffsetA_2d;
+						OffsetA_4d <= OffsetA_3d;
+						OffsetA_5d <= OffsetA_4d;
+						OffsetA_6d <= OffsetA_5d;
+						OffsetA_7d <= OffsetA_6d;
 						OffsetB <= cfg_do_A(11 downto 0);
-                        OffsetB_d <= OffsetB;
+						OffsetB_d <= OffsetB;
 					when 4 =>
 						ch1_dc_i <= cfg_do_A(21);
-                        ch2_dc_i <= cfg_do_A(20);
-                        ch1_gnd_i <= NOT(cfg_do_A(19));
-                        ch2_gnd_i <= NOT(cfg_do_A(18));
-                        ch1_k_i <= cfg_do_A(17);
-                        ch2_k_i <= cfg_do_A(16);
+						ch2_dc_i <= cfg_do_A(20);
+						ch1_gnd_i <= NOT(cfg_do_A(19));
+						ch2_gnd_i <= NOT(cfg_do_A(18));
+						ch1_k_i <= cfg_do_A(17);
+						ch2_k_i <= cfg_do_A(16);
 						s_trigger_mode <= cfg_do_A(1 downto 0);
-                        s_trigger_rearm <= cfg_do_A(2);
+						s_trigger_rearm <= cfg_do_A(2);
 					when 10 =>
 						generator1Type <= cfg_do_A(19 downto 16);
 						generator1Voltage <= sfixed(cfg_do_A(11 downto 0));
@@ -2384,7 +2384,7 @@ begin
 				        generator1Delta <= generator1Delta_H & generator1Delta_L;
 						generator2Type <= cfg_do_A(19 downto 16);
 						generator2Voltage <= sfixed(cfg_do_A(11 downto 0));
-					when 14 =>						
+					when 14 =>
 						generator2Offset <= signed(cfg_do_A(27 downto 16));
 						generator2Delta_H <= cfg_do_A(15 downto 0);
 					when 15 =>
@@ -2398,24 +2398,24 @@ begin
 				end case;
 			end if;
 			DebugMState <= 2;
-      
+
 		when D =>			          -- "CONFIGURE ADC"
 			-- reset ADC register write command
 			if ConfigureADC = '1' OR adcA_spi_busy = '1' OR adcB_spi_busy = '1' then
-                adc_spi_data <= adc_cfg_reg & adc_cfg_data;
-                ConfigureADC <= '0';
-                Masterstate <= D;
+				adc_spi_data <= adc_cfg_reg & adc_cfg_data;
+				ConfigureADC <= '0';
+				Masterstate <= D;
 			else
-            -- return to dispatcher state
-                Masterstate <= B;
+			-- return to dispatcher state
+				Masterstate <= B;
 			end if;
 			DebugMState <= 3;
-		
+
 		when E =>						-- "CONFIGURE ANALOG INPUTS (Gain/Offset)
 
 			--===========================================================
 			-- Update DAC outputs (analog channel Offser/Gain control)
-			--===========================================================	
+			--===========================================================
 
 			if DAC_programming_finished = '1' then
 				if cnt_dac_out_stable = 16383 then
@@ -2426,31 +2426,31 @@ begin
 					DAC_programming_finished <= '1';
 					cnt_dac_out_stable <= cnt_dac_out_stable + 1;
 					Masterstate <= E;
-				end if;										
+				end if;
 			else
 				Masterstate <= E;
 				case DAC_state (2 downto 0) is
-					
+
 					when DAC_A => -- "IDLE"
-						
+
 						if DAC_pogramming_start = '1' and dac_spi_busy = '0' then
 							DAC_pogramming_start <= '0';
 							DAC_state <= DAC_B; -- start programming
 						else
 							DAC_state <= DAC_A; -- WAIT
 						end if;
-					
+
 					when DAC_B => -- "LOAD DAC REGISTER AND START PROGRAMMING"
-					
-						dac_cfg_reg <= dac_cfg_array(dac_array_count);						
+
+						dac_cfg_reg <= dac_cfg_array(dac_array_count);
 						if dac_spi_busy = '0' then
 						    ConfigureVdac <= '1'; --s DAC programming
 						    DAC_state <= DAC_C;   --goto WAIT
 						else
 						    ConfigureVdac <= '0';
-                            DAC_state <= DAC_B;
-                        end if;
-								
+							DAC_state <= DAC_B;
+						end if;
+
 					when DAC_C => -- "WAIT UNTIL PROGRAMMING FINISHED"
 						ConfigureVdac <= '0';
 						if dac_spi_busy = '1' OR ConfigureVdac = '1' then
@@ -2472,9 +2472,9 @@ begin
 						DAC_state <= DAC_A;
 				end case;
 			end if;
-			
+
 			DebugMState <= 4;
-			
+
 		when F =>						-- "WAIT FOR NEW FRAME READY"
 			clearflags <= '0';
 			ReadingFrame <= '0';
@@ -2490,32 +2490,32 @@ begin
 			elsif ( flaga_d = '1' or flagb_d = '1') then
 				Masterstate <= B;	-- we have to read new config immediately if it was received
 			else
-                if newFrameRequestRevcd = '0' then
-                    if cnt_restart_framesave = 15 then
-                        -- if single trigger is requested but armed, then don't request new frame
-                        if s_trigger_mode = "10" AND s_trigger_rearm = '0' then
-                            cnt_restart_framesave <= 15;
-                            requestFrame <= '0';
-                        -- request new frame
-                        else
-                            s_trigger_rearm <= '0';
-                            cnt_restart_framesave <= 0;
-                            requestFrame <= '1';
-                    	end if;
-                    else
-                    	cnt_restart_framesave <= cnt_restart_framesave + 1;
-                    	requestFrame <= '0';
-                    end if;
-                    Masterstate <= F;
-                else
-                    -- wait in this state until frame is ready to send
-                    requestFrame <= '0';
-                    cnt_restart_framesave <= 0;
-                    Masterstate <= F;
-                end if;
+				if newFrameRequestRevcd = '0' then
+					if cnt_restart_framesave = 15 then
+						-- if single trigger is requested but armed, then don't request new frame
+						if s_trigger_mode = "10" AND s_trigger_rearm = '0' then
+							cnt_restart_framesave <= 15;
+							requestFrame <= '0';
+						-- request new frame
+						else
+							s_trigger_rearm <= '0';
+							cnt_restart_framesave <= 0;
+							requestFrame <= '1';
+						end if;
+					else
+						cnt_restart_framesave <= cnt_restart_framesave + 1;
+						requestFrame <= '0';
+					end if;
+					Masterstate <= F;
+				else
+					-- wait in this state until frame is ready to send
+					requestFrame <= '0';
+					cnt_restart_framesave <= 0;
+					Masterstate <= F;
+				end if;
 	     	end if;
 			DebugMState <= 5;
-			
+
 		when G =>            		-- "STREAMING SAMPLE DATA"
 			--sloe_i <= '1';
 			slrd_i <= '1';
@@ -2523,7 +2523,7 @@ begin
 			ReadingFrame <= '1';
 --			frame_ready_to_send <= '0'; 	-- reset frame_ready_to_send flag
 			-- select flagd/flagb IN EP buffer
-			
+
 			-- flaga/flagb interrupt: read scope config if sent from host
 			-- ONLY if there are no samples waiting to be read from RAM and if multiple of 4 samples were sent to FX3
 			--if (flaga_d = '1' or flagb_d = '1') and slwr_assert = '0' then
@@ -2531,19 +2531,19 @@ begin
 			    -- disable reading samples from RAM
 			    DataOutEnable <= '0';
 			    slwr_i <= '1';
-			    -- wait for 7 clk cycles to confirm there is no data waiting to be read from RAM 
+			    -- wait for 7 clk cycles to confirm there is no data waiting to be read from RAM
 			    if cnt_dw_stop = 7 then
-                    cnt_dw_stop <= 0;
-                    if unsigned(timebase_ddd) >= 12 then -- check if this is really needed???
-                        SendingFrameSlow <= '1';
-                    end if;
-                    MasterState <= B;
-                    ReturnToStreamingState <= '1'; -- set return state flag
-                else
+					cnt_dw_stop <= 0;
+					if unsigned(timebase_ddd) >= 12 then -- check if this is really needed???
+						SendingFrameSlow <= '1';
+					end if;
+					MasterState <= B;
+					ReturnToStreamingState <= '1'; -- set return state flag
+				else
 			        cnt_dw_stop <= cnt_dw_stop + 1;
 			        MasterState <= G;
 			    end if;
-				
+
 			-- send data to FX3 if EP6 is ready
 			elsif slwr_assert = '1' AND (
 			    -- if sending header
@@ -2571,41 +2571,41 @@ begin
 					--start sending frame HEADER
 					hword_cnt_i <= hword_cnt_i + 1;
 					case hword_cnt_i is
-    			    --read back scope config
-                        when 0  =>
-                            fdata <= X"DDDDDDDD";
-                            send_frame_cnt <= send_frame_cnt + 1;
-                        when 1 =>
-                            fdata <= X"0000" & X"0" & device_temp_dd;
-                            --fdata <= X"00000" & device_temp_dd;
-                        when 2 =>
-                            fdata <= X"0000" & X"00" & "00" & std_logic_vector(an_trig_delay_dd);
-                            --fdata <= X"00000" &  std_logic_vector(to_unsigned(send_frame_cnt,12));
-                        when 3 =>
-                            fdata <= X"0000" & X"00" & "00" & std_logic_vector(an_trig_delay_min);
-                        when 4 =>
-                            fdata <= X"0000" & X"00" & "00" & std_logic_vector(an_trig_delay_max);                          
-                        when 63 =>
-                            cfg_addrA <= std_logic_vector(to_unsigned(1,6));
-                            fdata <= X"0000FFFF";
-                        when 64 to 64+(CONFIG_DATA_SIZE-1) =>
-                            if to_integer(unsigned(cfg_addrA)) = CONFIG_DATA_SIZE-1 then
-                                cfg_addrA <= std_logic_vector(to_unsigned(0,6));
-                            else
-                                cfg_addrA <= std_logic_vector(unsigned(cfg_addrA) + 1);
-                            end if;
-                            if hword_cnt_i = 72 then
-                                fdata(31 downto 27) <= "00000";
-                                fdata(26 downto 0) <= std_logic_vector(unsigned(framesize_dd)+1);
-                            else
-                                fdata <= cfg_do_A;
-                            end if;
-                        when FRAME_HEADER_SIZE-1 =>
-                            fdata  <= x"00000000"; -- CRC
-                        when others =>
-                            cfg_addrA <= std_logic_vector(to_unsigned(0,6));
-                            fdata <= X"0000FFFF";
-                    end case;					
+				    --read back scope config
+						when 0  =>
+							fdata <= X"DDDDDDDD";
+							send_frame_cnt <= send_frame_cnt + 1;
+						when 1 =>
+							fdata <= X"0000" & X"0" & device_temp_dd;
+							--fdata <= X"00000" & device_temp_dd;
+						when 2 =>
+							fdata <= X"0000" & X"00" & "00" & std_logic_vector(an_trig_delay_dd);
+							--fdata <= X"00000" &  std_logic_vector(to_unsigned(send_frame_cnt,12));
+						when 3 =>
+							fdata <= X"0000" & X"00" & "00" & std_logic_vector(an_trig_delay_min);
+						when 4 =>
+							fdata <= X"0000" & X"00" & "00" & std_logic_vector(an_trig_delay_max);
+						when 63 =>
+							cfg_addrA <= std_logic_vector(to_unsigned(1,6));
+							fdata <= X"0000FFFF";
+						when 64 to 64+(CONFIG_DATA_SIZE-1) =>
+							if to_integer(unsigned(cfg_addrA)) = CONFIG_DATA_SIZE-1 then
+								cfg_addrA <= std_logic_vector(to_unsigned(0,6));
+							else
+								cfg_addrA <= std_logic_vector(unsigned(cfg_addrA) + 1);
+							end if;
+							if hword_cnt_i = 72 then
+								fdata(31 downto 27) <= "00000";
+								fdata(26 downto 0) <= std_logic_vector(unsigned(framesize_dd)+1);
+							else
+								fdata <= cfg_do_A;
+							end if;
+						when FRAME_HEADER_SIZE-1 =>
+							fdata  <= x"00000000"; -- CRC
+						when others =>
+							cfg_addrA <= std_logic_vector(to_unsigned(0,6));
+							fdata <= X"0000FFFF";
+					end case;
 --					case hword_cnt_i is
 --						when 0 =>
 --							fdata(15 downto 0) <= X"DDDD";
@@ -2627,49 +2627,49 @@ begin
 --				      end case;
 				else
 				    -- control reading data from RAM with DataOutEnable
-                    -- count how many 32-bit data words were sent to FX3 fifo
-                    if dword_cnt_i = (FX3_DMA_BUFFER_SIZE/4)-1 then
-                        dword_cnt_i <= 0;
-                        DataOutEnable <= '0';
-                    else
-                        dword_cnt_i <= dword_cnt_i + 1;
-                        -- data from RAM will still be valid 4 clk cycles after DataOutEnable is deasserted
-                        -- so DataOutEnable must be deasserted 4 clk cycles before FX3 fifo is full
-                        if dword_cnt_i < (FX3_DMA_BUFFER_SIZE/4)-5 then
-                            DataOutEnable <= '1';
-                        else
-                            DataOutEnable <= '0';
-                        end if;
-                    end if;
+					-- count how many 32-bit data words were sent to FX3 fifo
+					if dword_cnt_i = (FX3_DMA_BUFFER_SIZE/4)-1 then
+						dword_cnt_i <= 0;
+						DataOutEnable <= '0';
+					else
+						dword_cnt_i <= dword_cnt_i + 1;
+						-- data from RAM will still be valid 4 clk cycles after DataOutEnable is deasserted
+						-- so DataOutEnable must be deasserted 4 clk cycles before FX3 fifo is full
+						if dword_cnt_i < (FX3_DMA_BUFFER_SIZE/4)-5 then
+							DataOutEnable <= '1';
+						else
+							DataOutEnable <= '0';
+						end if;
+					end if;
 					-- start sending frame DATA
 					if ( send_sample_cnt = to_integer(unsigned(framesize_dd)) ) then
-                        SendingFrameSlow <= '0';	-- reset flags
-                        if dword_cnt_i = (FX3_DMA_BUFFER_SIZE/4)-1 then
-                            hword_cnt_i <= 0; -- RESET Header couter
-                            send_sample_cnt <= 0;
-                            MasterState <= B; -- continue to dispatcher
+						SendingFrameSlow <= '0';	-- reset flags
+						if dword_cnt_i = (FX3_DMA_BUFFER_SIZE/4)-1 then
+							hword_cnt_i <= 0; -- RESET Header couter
+							send_sample_cnt <= 0;
+							MasterState <= B; -- continue to dispatcher
 						else
 						    if DataOutValid = '1' then
-                                fdata <= DataOut;
-                            else
-                                -- insert padding bytes to fill FX3 DMA BUFFER
-                                -- we have to do this, if we don't want to use PKTEND#
+								fdata <= DataOut;
+							else
+								-- insert padding bytes to fill FX3 DMA BUFFER
+								-- we have to do this, if we don't want to use PKTEND#
 						        fdata <= x"00000000";
 						    end if;
 						    Masterstate <= G; -- CONTINUE WITH PADDING
 						end if;
 					else
 					    if ( SendingFrameSlow = '1' and ScopeConfigChanged = '1' ) then
-                            fdata <= x"00000000";
-                            clearflags <= '1';
-                        else
-                            fdata <= DataOut;
-                            --fdata <= DataOut(31 downto 12) & "00" & DataOut(31 downto 22);
-                            clearflags <= '0';
-                        end if;
+							fdata <= x"00000000";
+							clearflags <= '1';
+						else
+							fdata <= DataOut;
+							--fdata <= DataOut(31 downto 12) & "00" & DataOut(31 downto 22);
+							clearflags <= '0';
+						end if;
 						send_sample_cnt <= send_sample_cnt + 1;
-                        Masterstate <= G; -- CONTINUE STREAMING SAMPLE DATA
-					end if;									
+						Masterstate <= G; -- CONTINUE STREAMING SAMPLE DATA
+					end if;
 				end if;
 			-- FX3 can accept data and samples still need to be sent and header was already sent
 		    elsif slwr_assert = '1' and (send_sample_cnt < to_integer(unsigned(framesize_dd))) and hword_cnt_i = FRAME_HEADER_SIZE then
@@ -2681,210 +2681,210 @@ begin
 --		            DataOutEnable <= '0';
 --		        end if;
 		        slwr_i  <= '1';
-                Masterstate <= G;
+				Masterstate <= G;
 			else	-- else, WAIT UNTIL FIFO IS EMPTY
 			    DataOutEnable <= '0';
 				slwr_i  <= '1';
 				Masterstate <= G;
 			end if;
 			DebugMState <= 6;
-	
+
 		when H =>                 -- "Read data for AWG custom signal"
 
 			faddr_i <= "10";	-- select EP4 (awg custom data)
 			slwr_i  <= '1';
 			if faddr_rdy = '0' then
-                -- FX3 has 3 cycle latency from FADDR to data
-                -- and 2 cycle latency from SLRD to data
-                slrd_i <= '1';
-                slrd_rdy_cnt <= 0;
-                if faddr_rdy_cnt_i = 3 then
-                    faddr_rdy <= '1';
-                    faddr_rdy_cnt_i <= 0;
-                else
-                    faddr_rdy <= '0';
-                    faddr_rdy_cnt_i <= faddr_rdy_cnt_i + 1;
-                end if;
-            elsif ( flagb_dd = '1' ) then
+				-- FX3 has 3 cycle latency from FADDR to data
+				-- and 2 cycle latency from SLRD to data
+				slrd_i <= '1';
+				slrd_rdy_cnt <= 0;
+				if faddr_rdy_cnt_i = 3 then
+					faddr_rdy <= '1';
+					faddr_rdy_cnt_i <= 0;
+				else
+					faddr_rdy <= '0';
+					faddr_rdy_cnt_i <= faddr_rdy_cnt_i + 1;
+				end if;
+			elsif ( flagb_dd = '1' ) then
 
-                if slrd_i = '0' then
-                    if slrd_cnt = (FX3_DMA_BUFFER_SIZE/4) then
-                        slrd_cnt <= 0;
-                    else                      
-                        slrd_cnt <= slrd_cnt + 1;
-                    end if;
-                end if;
-                -- Select AWG buffer -> 0: AWG_1, 1: AWG_2, 2: Digital
-                case BufferSel is
-                    when "00" =>
-                    
-                        if accumulate_addra_awg = '1' and addra_awg < std_logic_vector(to_unsigned(AWG_MAX_SAMPLES-1,15)) then
-                            addra_awg <= std_logic_vector(unsigned(addra_awg) + 1);
-                        end if;
-                        if slrd_rdy_cnt = 3 then
-                            -- fdata bus is 32-bit wide, so we are reading 2 consecutive 12-bit words in one clock cycle
-                            -- and asserting slrd_i every other clock cycle
-                            dina_awg_tmp <= fdata(11 downto 0);
-                            if slrd_i = '0' then             
-                                slrd_i <= '1'; 
-                                dina_awg <= fdata(27 downto 16);
-                                wea_awg <= '1';
-                                accumulate_addra_awg <= '1'; -- start address counters                      
-                            else
-                                if slrd_cnt < (FX3_DMA_BUFFER_SIZE/4) then
-                                    dina_awg <= dina_awg_tmp;
-                                    wea_awg <= '1';
-                                    accumulate_addra_awg <= '1'; -- start address counters
-                                    slrd_i <= '0';
-                                else
-                                    cnt_rd_last <= not(cnt_rd_last);
-                                    if cnt_rd_last = '0' then
-                                        dina_awg <= dina_awg_tmp;
-                                    else
-                                        dina_awg <= fdata(27 downto 16);
-                                    end if;
-                                    wea_awg <= flagb_d;
-                                    accumulate_addra_awg <= flagb_d; -- start address counters
-                                    slrd_i <= '1';
-                                end if;
-                            end if;
-                        else
-                            if slrd_i = '1' then
-                                slrd_i <= '0';
-                            else
-                                slrd_i <= '1';
-                            end if;
-                            slrd_rdy_cnt <= slrd_rdy_cnt + 1;
-                            accumulate_addra_awg <= '0';
-                        end if;
-                        -- stay in this state, util EP4 is not empty
-                        Masterstate <= H;
-                        
-                    when "01" =>
-                    
-                        if accumulate_addra_awg = '1' and addra_awg2 < std_logic_vector(to_unsigned(AWG_MAX_SAMPLES-1,15)) then
-                        addra_awg2 <= std_logic_vector(unsigned(addra_awg2) + 1);
-                        end if;
-                        if slrd_rdy_cnt = 3 then
-                            -- fdata bus is 32-bit wide, so we are reading 2 consecutive 12-bit words in one clock cycle
-                            -- and asserting slrd_i every other clock cycle
-                            dina_awg2_tmp <= fdata(11 downto 0);
-                            if slrd_i = '0' then             
-                                slrd_i <= '1'; 
-                                dina_awg2 <= fdata(27 downto 16);
-                                wea_awg2 <= '1';
-                                accumulate_addra_awg <= '1'; -- start address counters                      
-                            else
-                                if slrd_cnt < (FX3_DMA_BUFFER_SIZE/4) then
-                                    dina_awg2 <= dina_awg2_tmp;
-                                    wea_awg2 <= '1';
-                                    accumulate_addra_awg <= '1'; -- start address counters
-                                    slrd_i <= '0';
-                                else
-                                    cnt_rd_last <= not(cnt_rd_last);
-                                    if cnt_rd_last = '0' then
-                                        dina_awg2 <= dina_awg2_tmp;
-                                    else
-                                        dina_awg2 <= fdata(27 downto 16);
-                                    end if;
-                                    wea_awg2 <= flagb_d;
-                                    accumulate_addra_awg <= flagb_d; -- start address counters
-                                    slrd_i <= '1';
-                                end if;
-                            end if;
-                        else
-                            if slrd_i = '1' then
-                                slrd_i <= '0';
-                            else
-                                slrd_i <= '1';
-                            end if;
-                            slrd_rdy_cnt <= slrd_rdy_cnt + 1;
-                            accumulate_addra_awg <= '0';
-                        end if;
-                        -- stay in this state, util EP4 is not empty
-                        Masterstate <= H;
-                    
-                    when "10" =>
-                    
-                        if accumulate_addra_awg = '1' and addra_dig < std_logic_vector(to_unsigned(AWG_MAX_SAMPLES-1,15)) then
-                            addra_dig <= std_logic_vector(unsigned(addra_dig) + 1);
-                        end if;
-                        if slrd_rdy_cnt = 3 then
-                            -- fdata bus is 32-bit wide, so we are reading 2 consecutive 12-bit words in one clock cycle
-                            -- and asserting slrd_i every other clock cycle
-                            dina_dig_tmp <= fdata(11 downto 0);
-                            if slrd_i = '0' then             
-                                slrd_i <= '1'; 
-                                dina_dig <= fdata(27 downto 16);
-                                wea_dig <= '1';
-                                accumulate_addra_awg <= '1'; -- start address counters                      
-                            else
-                                if slrd_cnt < (FX3_DMA_BUFFER_SIZE/4) then
-                                    dina_dig <= dina_dig_tmp;
-                                    wea_dig <= '1';
-                                    accumulate_addra_awg <= '1'; -- start address counters
-                                    slrd_i <= '0';
-                                else
-                                    cnt_rd_last <= not(cnt_rd_last);
-                                    if cnt_rd_last = '0' then
-                                        dina_dig <= dina_dig_tmp;
-                                    else
-                                        dina_dig <= fdata(27 downto 16);
-                                    end if;
-                                    wea_dig <= flagb_d;
-                                    accumulate_addra_awg <= flagb_d; -- start address counters
-                                    slrd_i <= '1';
-                                end if;
-                            end if;
-                        else
-                            if slrd_i = '1' then
-                                slrd_i <= '0';
-                            else
-                                slrd_i <= '1';
-                            end if;
-                            slrd_rdy_cnt <= slrd_rdy_cnt + 1;
-                            accumulate_addra_awg <= '0';
-                        end if;
-                        -- stay in this state, util EP4 is not empty
-                        Masterstate <= H;
-                
-                    when others => null;
-                end case;
-            else
-                slrd_cnt <= 0;
-                slrd_rdy_cnt <= 0;
-                cnt_rd_last <= '0';
-                slrd_i <= '1';
-                wea_dig <= '0';
-                wea_awg <= '0';
-                wea_awg2 <= '0';
-                accumulate_addra_awg <= '0'; -- re-set counter flag
-                -- if awg buffer is full
-                if addra_awg = std_logic_vector(to_unsigned(AWG_MAX_SAMPLES-1,15)) then
-                    addra_awg <= std_logic_vector(to_unsigned(0,15));
-                    BufferSel <= "01"; -- switch to AWG_2 buffer
-                    Masterstate <= B;
-                elsif addra_awg2 = std_logic_vector(to_unsigned(AWG_MAX_SAMPLES-1,15)) then
-                    addra_awg2 <= std_logic_vector(to_unsigned(0,15));
-                    BufferSel <= "10"; -- switch to dig. pattern buffer
-                    Masterstate <= B;
-                elsif addra_dig = std_logic_vector(to_unsigned(AWG_MAX_SAMPLES-1,15)) then
-                    addra_dig <= std_logic_vector(to_unsigned(0,15));
-                    BufferSel <= "00"; -- reset buffer select
-                    faddr_rdy <= '0';
-                    Masterstate <= B; -- back to dispatcher
-                else
-                   -- halt on error
-                    MasterState <= B; -- halt in curent state
-                end if;
-            end if;
+				if slrd_i = '0' then
+					if slrd_cnt = (FX3_DMA_BUFFER_SIZE/4) then
+						slrd_cnt <= 0;
+					else
+						slrd_cnt <= slrd_cnt + 1;
+					end if;
+				end if;
+				-- Select AWG buffer -> 0: AWG_1, 1: AWG_2, 2: Digital
+				case BufferSel is
+					when "00" =>
+
+						if accumulate_addra_awg = '1' and addra_awg < std_logic_vector(to_unsigned(AWG_MAX_SAMPLES-1,15)) then
+							addra_awg <= std_logic_vector(unsigned(addra_awg) + 1);
+						end if;
+						if slrd_rdy_cnt = 3 then
+							-- fdata bus is 32-bit wide, so we are reading 2 consecutive 12-bit words in one clock cycle
+							-- and asserting slrd_i every other clock cycle
+							dina_awg_tmp <= fdata(11 downto 0);
+							if slrd_i = '0' then
+								slrd_i <= '1';
+								dina_awg <= fdata(27 downto 16);
+								wea_awg <= '1';
+								accumulate_addra_awg <= '1'; -- start address counters
+							else
+								if slrd_cnt < (FX3_DMA_BUFFER_SIZE/4) then
+									dina_awg <= dina_awg_tmp;
+									wea_awg <= '1';
+									accumulate_addra_awg <= '1'; -- start address counters
+									slrd_i <= '0';
+								else
+									cnt_rd_last <= not(cnt_rd_last);
+									if cnt_rd_last = '0' then
+										dina_awg <= dina_awg_tmp;
+									else
+										dina_awg <= fdata(27 downto 16);
+									end if;
+									wea_awg <= flagb_d;
+									accumulate_addra_awg <= flagb_d; -- start address counters
+									slrd_i <= '1';
+								end if;
+							end if;
+						else
+							if slrd_i = '1' then
+								slrd_i <= '0';
+							else
+								slrd_i <= '1';
+							end if;
+							slrd_rdy_cnt <= slrd_rdy_cnt + 1;
+							accumulate_addra_awg <= '0';
+						end if;
+						-- stay in this state, util EP4 is not empty
+						Masterstate <= H;
+
+					when "01" =>
+
+						if accumulate_addra_awg = '1' and addra_awg2 < std_logic_vector(to_unsigned(AWG_MAX_SAMPLES-1,15)) then
+						addra_awg2 <= std_logic_vector(unsigned(addra_awg2) + 1);
+						end if;
+						if slrd_rdy_cnt = 3 then
+							-- fdata bus is 32-bit wide, so we are reading 2 consecutive 12-bit words in one clock cycle
+							-- and asserting slrd_i every other clock cycle
+							dina_awg2_tmp <= fdata(11 downto 0);
+							if slrd_i = '0' then
+								slrd_i <= '1';
+								dina_awg2 <= fdata(27 downto 16);
+								wea_awg2 <= '1';
+								accumulate_addra_awg <= '1'; -- start address counters
+							else
+								if slrd_cnt < (FX3_DMA_BUFFER_SIZE/4) then
+									dina_awg2 <= dina_awg2_tmp;
+									wea_awg2 <= '1';
+									accumulate_addra_awg <= '1'; -- start address counters
+									slrd_i <= '0';
+								else
+									cnt_rd_last <= not(cnt_rd_last);
+									if cnt_rd_last = '0' then
+										dina_awg2 <= dina_awg2_tmp;
+									else
+										dina_awg2 <= fdata(27 downto 16);
+									end if;
+									wea_awg2 <= flagb_d;
+									accumulate_addra_awg <= flagb_d; -- start address counters
+									slrd_i <= '1';
+								end if;
+							end if;
+						else
+							if slrd_i = '1' then
+								slrd_i <= '0';
+							else
+								slrd_i <= '1';
+							end if;
+							slrd_rdy_cnt <= slrd_rdy_cnt + 1;
+							accumulate_addra_awg <= '0';
+						end if;
+						-- stay in this state, util EP4 is not empty
+						Masterstate <= H;
+
+					when "10" =>
+
+						if accumulate_addra_awg = '1' and addra_dig < std_logic_vector(to_unsigned(AWG_MAX_SAMPLES-1,15)) then
+							addra_dig <= std_logic_vector(unsigned(addra_dig) + 1);
+						end if;
+						if slrd_rdy_cnt = 3 then
+							-- fdata bus is 32-bit wide, so we are reading 2 consecutive 12-bit words in one clock cycle
+							-- and asserting slrd_i every other clock cycle
+							dina_dig_tmp <= fdata(11 downto 0);
+							if slrd_i = '0' then
+								slrd_i <= '1';
+								dina_dig <= fdata(27 downto 16);
+								wea_dig <= '1';
+								accumulate_addra_awg <= '1'; -- start address counters
+							else
+								if slrd_cnt < (FX3_DMA_BUFFER_SIZE/4) then
+									dina_dig <= dina_dig_tmp;
+									wea_dig <= '1';
+									accumulate_addra_awg <= '1'; -- start address counters
+									slrd_i <= '0';
+								else
+									cnt_rd_last <= not(cnt_rd_last);
+									if cnt_rd_last = '0' then
+										dina_dig <= dina_dig_tmp;
+									else
+										dina_dig <= fdata(27 downto 16);
+									end if;
+									wea_dig <= flagb_d;
+									accumulate_addra_awg <= flagb_d; -- start address counters
+									slrd_i <= '1';
+								end if;
+							end if;
+						else
+							if slrd_i = '1' then
+								slrd_i <= '0';
+							else
+								slrd_i <= '1';
+							end if;
+							slrd_rdy_cnt <= slrd_rdy_cnt + 1;
+							accumulate_addra_awg <= '0';
+						end if;
+						-- stay in this state, util EP4 is not empty
+						Masterstate <= H;
+
+					when others => null;
+				end case;
+			else
+				slrd_cnt <= 0;
+				slrd_rdy_cnt <= 0;
+				cnt_rd_last <= '0';
+				slrd_i <= '1';
+				wea_dig <= '0';
+				wea_awg <= '0';
+				wea_awg2 <= '0';
+				accumulate_addra_awg <= '0'; -- re-set counter flag
+				-- if awg buffer is full
+				if addra_awg = std_logic_vector(to_unsigned(AWG_MAX_SAMPLES-1,15)) then
+					addra_awg <= std_logic_vector(to_unsigned(0,15));
+					BufferSel <= "01"; -- switch to AWG_2 buffer
+					Masterstate <= B;
+				elsif addra_awg2 = std_logic_vector(to_unsigned(AWG_MAX_SAMPLES-1,15)) then
+					addra_awg2 <= std_logic_vector(to_unsigned(0,15));
+					BufferSel <= "10"; -- switch to dig. pattern buffer
+					Masterstate <= B;
+				elsif addra_dig = std_logic_vector(to_unsigned(AWG_MAX_SAMPLES-1,15)) then
+					addra_dig <= std_logic_vector(to_unsigned(0,15));
+					BufferSel <= "00"; -- reset buffer select
+					faddr_rdy <= '0';
+					Masterstate <= B; -- back to dispatcher
+				else
+				   -- halt on error
+					MasterState <= B; -- halt in curent state
+				end if;
+			end if;
 			DebugMState <= 7;
-		
+
 		when others =>					-- if in undefined state, move to IDLE
 			faddr_i <= "00";
-			slwr_i  <= '1'; 
+			slwr_i  <= '1';
 			MasterState <= A;
-			
+
 		end case;
 	end if;
 

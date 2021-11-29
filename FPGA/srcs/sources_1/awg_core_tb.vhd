@@ -182,9 +182,9 @@ begin
         wait until rising_edge(clk);
         
         generator1On <= '1';
-        generatorDelta_1 <= "01010000000000000000000000000000";
+        generatorDelta_1 <= "00000000000001000000000000000000";
         generatorDelta_2 <= "01010000000000000000000000000000";
-        generatorType_1 <= std_logic_vector(to_unsigned(3,4));
+        generatorType_1 <= std_logic_vector(to_unsigned(0,4));
         generatorType_2 <= std_logic_vector(to_unsigned(3,4));
         generatorDuty_1 <= "000000000000";
         generatorDuty_2 <= to_signed(50,12);
