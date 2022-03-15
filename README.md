@@ -1,5 +1,7 @@
 **ScopeFun firmware source**
 
+Tadas edition. Start modify 2022-03-15.
+
 This repository contains all the firmware source code for ScopeFun platform. This includes firmware for the Cypress FX3 USB controller and HDL for the Xilinx Artix-7 FPGA. The source is organized as follows:
 
 Directory|Description
